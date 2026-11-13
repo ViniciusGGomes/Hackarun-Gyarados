@@ -69,4 +69,6 @@ Projeto desenvolvido por uma equipe de quatro integrantes durante o Hackarun.
 
 <p align="center">
   Desenvolvido com dedicação pela equipe <strong>Gyarados</strong> durante o Hackarun.
+  <br />
+  <strong>Integrantes:</strong> Vinicius, Igor, Bruna e Estefany.
 </p>
