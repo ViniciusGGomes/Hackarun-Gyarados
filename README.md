@@ -59,7 +59,7 @@ Essa escolha permite utilizar uma linguagem compartilhada entre frontend e backe
 
 A documentação técnica inicial apresenta o planejamento do projeto, incluindo a definição do problema, proposta da solução, estrutura inicial das telas, arquitetura, tecnologias, infraestrutura e organização da equipe.
 
-📄 **[Acessar o Planejamento Técnico Inicial](docs/PLANEJAMENTO_TECNICO.md)**
+📄 **[Acessar o Planejamento Técnico Inicial](https://docs.google.com/document/d/1FftF9Ybjzb5fKMiLHq7U5n_dYZjmE4DK0Qwt5WAsZzY/edit?usp=sharing)**
 
 ## Equipe — Gyarados
 
