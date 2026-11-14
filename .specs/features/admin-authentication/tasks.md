@@ -237,10 +237,10 @@ Tasks T11..T15.
 **Requirement**: AUTHN-30, AUTHN-31, AUTHN-32
 
 **Done when**:
-- [ ] Testes unitários em `auth.service.test.ts` para sessão inexistente, de outro usuário, revogada, inativa há mais de 30 min (todos `UnauthorizedError`) e válida.
-- [ ] Atividade dentro da janela mantém a sessão e renova `lastActivityAt`.
-- [ ] `logout` grava `revokedAt`; depois disso `validateSession` rejeita.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Testes unitários em `auth.service.test.ts` para sessão inexistente, de outro usuário, revogada, inativa há mais de 30 min (todos `UnauthorizedError`) e válida.
+- [x] Atividade dentro da janela mantém a sessão e renova `lastActivityAt`.
+- [x] `logout` grava `revokedAt`; depois disso `validateSession` rejeita.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick

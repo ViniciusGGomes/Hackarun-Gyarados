@@ -2,7 +2,13 @@ import bcrypt from 'bcryptjs'
 
 import { AccountLockedError } from '../../http/routes/_errors/account-locked-error'
 import { InvalidCredentialsError } from '../../http/routes/_errors/invalid-credentials-error'
-import { DUMMY_PASSWORD_HASH, LOCK_DURATION_MS, MAX_FAILED_ATTEMPTS } from './auth.constants'
+import { UnauthorizedError } from '../../http/routes/_errors/unauthorized-error'
+import {
+  DUMMY_PASSWORD_HASH,
+  INACTIVITY_WINDOW_MS,
+  LOCK_DURATION_MS,
+  MAX_FAILED_ATTEMPTS,
+} from './auth.constants'
 import { authRepository } from './auth.repository'
 
 type PublicUser = {
@@ -53,4 +59,22 @@ export async function login(email: string, password: string, now: Date = new Dat
   const session = await authRepository.createSession(user.id, now)
 
   return { user: toPublicUser(user), sessionId: session.id }
+}
+
+export async function validateSession(sessionId: string, userId: string, now: Date = new Date()) {
+  const session = await authRepository.findSessionById(sessionId)
+
+  if (!session || session.userId !== userId || session.revokedAt) {
+    throw new UnauthorizedError('Invalid auth token')
+  }
+
+  if (now.getTime() - session.lastActivityAt.getTime() > INACTIVITY_WINDOW_MS) {
+    throw new UnauthorizedError('Session expired')
+  }
+
+  await authRepository.touchSession(sessionId, now)
+}
+
+export async function logout(sessionId: string, now: Date = new Date()) {
+  await authRepository.revokeSession(sessionId, now)
 }

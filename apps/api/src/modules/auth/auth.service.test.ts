@@ -3,9 +3,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { AccountLockedError } from '../../http/routes/_errors/account-locked-error'
 import { InvalidCredentialsError } from '../../http/routes/_errors/invalid-credentials-error'
+import { UnauthorizedError } from '../../http/routes/_errors/unauthorized-error'
 import { createFakePrisma, type FakeUser } from '../../test/fake-prisma'
 import { DUMMY_PASSWORD_HASH } from './auth.constants'
-import { login } from './auth.service'
+import { login, logout, validateSession } from './auth.service'
 
 const state = vi.hoisted(() => ({ prisma: null as unknown as Record<string, unknown> }))
 
@@ -186,5 +187,82 @@ describe('login() lockout', () => {
 
     expect(results.every((r) => r.status === 'rejected')).toBe(true)
     expect(fake.users.get(PAULO_ID)?.failedLoginAttempts).toBe(4)
+  })
+})
+
+describe('validateSession() and logout()', () => {
+  async function startSession() {
+    const fake = setup([user({}), user({ id: INATIVO_ID, email: 'inativo@exemplo.com' })])
+    const { sessionId } = await login('paulo@exemplo.com', PASSWORD, NOW)
+
+    return { fake, sessionId }
+  }
+
+  it('accepts a session used within the inactivity window and renews its activity', async () => {
+    const { fake, sessionId } = await startSession()
+    const later = new Date(NOW.getTime() + minutes(29))
+
+    await expect(validateSession(sessionId, PAULO_ID, later)).resolves.toBeUndefined()
+
+    expect(fake.sessions.get(sessionId)?.lastActivityAt).toEqual(later)
+  })
+
+  it('keeps a session alive as long as each request is within 30 minutes of the previous one', async () => {
+    const { sessionId } = await startSession()
+
+    await validateSession(sessionId, PAULO_ID, new Date(NOW.getTime() + minutes(25)))
+    await validateSession(sessionId, PAULO_ID, new Date(NOW.getTime() + minutes(50)))
+
+    await expect(validateSession(sessionId, PAULO_ID, new Date(NOW.getTime() + minutes(75)))).resolves.toBeUndefined()
+  })
+
+  it('rejects a session idle for more than 30 minutes', async () => {
+    const { fake, sessionId } = await startSession()
+    const later = new Date(NOW.getTime() + minutes(31))
+
+    await expect(validateSession(sessionId, PAULO_ID, later)).rejects.toBeInstanceOf(UnauthorizedError)
+
+    expect(fake.sessions.get(sessionId)?.lastActivityAt).toEqual(NOW)
+  })
+
+  it('accepts a session idle for exactly 30 minutes', async () => {
+    const { sessionId } = await startSession()
+
+    await expect(validateSession(sessionId, PAULO_ID, new Date(NOW.getTime() + minutes(30)))).resolves.toBeUndefined()
+  })
+
+  it('rejects an unknown session id', async () => {
+    await startSession()
+
+    await expect(
+      validateSession('00000000-0000-4000-8000-0000000000ff', PAULO_ID, NOW),
+    ).rejects.toBeInstanceOf(UnauthorizedError)
+  })
+
+  it('rejects a session that belongs to another user', async () => {
+    const { sessionId } = await startSession()
+
+    await expect(validateSession(sessionId, INATIVO_ID, NOW)).rejects.toBeInstanceOf(UnauthorizedError)
+  })
+
+  it('logout revokes the session and later validation rejects it', async () => {
+    const { fake, sessionId } = await startSession()
+    const later = new Date(NOW.getTime() + minutes(1))
+
+    await logout(sessionId, later)
+
+    expect(fake.sessions.get(sessionId)?.revokedAt).toEqual(later)
+    await expect(validateSession(sessionId, PAULO_ID, later)).rejects.toBeInstanceOf(UnauthorizedError)
+  })
+
+  it('two logins create two independent sessions and logout revokes only one', async () => {
+    const { fake, sessionId: first } = await startSession()
+    const { sessionId: second } = await login('paulo@exemplo.com', PASSWORD, NOW)
+
+    await logout(first, NOW)
+
+    expect(second).not.toBe(first)
+    expect(fake.sessions.get(second)?.revokedAt).toBeNull()
+    await expect(validateSession(second, PAULO_ID, NOW)).resolves.toBeUndefined()
   })
 })
