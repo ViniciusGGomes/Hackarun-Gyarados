@@ -53,6 +53,7 @@ Verificado no código da branch `backend`, após o fechamento de `public-query-r
 | MFA, refresh token separado, "lembrar de mim" | Não documentado. |
 | Regra "último Gestor ativo" | Pertence ao módulo `users`. |
 | Validar força mínima de `JWT_SECRET` no `packages/env` | Mudança de configuração fora desta feature; risco registrado. |
+| Log de eventos de autenticação (login, falha, bloqueio, logout) e limite de escrita de `lastActivityAt` | Endurecimento de produção; a feature roda só localmente. |
 | Mudança no seed e no OpenAPI | Só o schema muda, com o model `Session` aprovado em D1; seed, OpenAPI e `User` permanecem. |
 
 ---
@@ -66,7 +67,8 @@ Verificado no código da branch `backend`, após o fechamento de `public-query-r
 | Transporte do token | Header `Authorization: Bearer <accessToken>` | `docs/api.md`, OpenAPI `bearerAuth` | y (documentado) |
 | Corpo do `user` no login e no `/auth/me` | Schema `User` do OpenAPI: `id`, `name`, `email`, `role`, `active` | OpenAPI | y (documentado) |
 | `INVALID_CREDENTIALS` para e-mail inexistente e senha errada | Mesma resposta (401), mesmo corpo | Evita enumerar contas; OpenAPI só prevê 401 `INVALID_CREDENTIALS` | y (documentado) |
-| D1 Sessão | Sessões no PostgreSQL: novo model `Session` (`id`, `userId`, `lastActivityAt`, `revokedAt`, `createdAt`); o JWT leva `sid`; cada request valida a sessão; `lastActivityAt` renovado no máximo 1 vez por minuto | Única opção com revogação real e inatividade real usando só PostgreSQL | y - user: "pode seguir" (aceitou a recomendação) |
+| Execução | Somente local (apresentação em máquina de desenvolvimento, sem deploy); decisões e testes pensados para esse cenário | Pedido do usuário | y - user: "preciso que esse processo de login e de authenticação seja pensando apenas local, não vou fazer o deploy do projeto" |
+| D1 Sessão | Sessões no PostgreSQL: novo model `Session` (`id`, `userId`, `lastActivityAt`, `revokedAt`, `createdAt`); o JWT leva `sid`; cada request valida a sessão; `lastActivityAt` renovado a cada request autenticada | Única opção com revogação real e inatividade real usando só PostgreSQL | y - user: "pode seguir" (aceitou a recomendação) |
 | D2 Bloqueio | N = 5 tentativas inválidas; L = 15 minutos | Docs dizem só "várias" | y - user: "pode seguir" (aceitou a recomendação) |
 | D3 Inatividade | T = 30 minutos; `expiresIn = 1800`; teto absoluto do JWT (`exp`) = 8 horas | Um turno; `expiresIn` é a janela de inatividade | y - user: "pode seguir" (aceitou a recomendação) |
 | D4 Usuário inativo | `401 INVALID_CREDENTIALS`, sem incrementar o contador | Não revela a existência/estado da conta | y - user: "pode seguir" (aceitou a recomendação) |
@@ -75,7 +77,6 @@ Verificado no código da branch `backend`, após o fechamento de `public-query-r
 | D7 Frontend | Fora desta feature; só o contrato | Pedido prioriza a API | y - user: "pode seguir" (aceitou a recomendação) |
 | Efeito do bloqueio em tokens já emitidos | O bloqueio (`lockedUntil`) afeta somente o login; token já emitido continua válido até expirar/ser revogado | RF11 liga o bloqueio a "tentativas inválidas de login" | y - user: "pode seguir" (aceitou a recomendação) |
 | Armazenamento do token no frontend | Cookie `httpOnly`, `sameSite=lax`, `secure` em produção, `maxAge = expiresIn`, escrito por Server Action/route handler do Next; nunca `localStorage` | O frontend atual já usa cookie `token` via Server Action; httpOnly reduz risco de XSS | y - user: "pode seguir" (aceitou a recomendação) |
-| Eventos registrados em log | Logar evento (`login_success`, `login_failed`, `account_locked`, `logout`) com `userId` quando existir; nunca senha, token ou hash | `docs/authorization.md`: "Registrar tentativas e eventos relevantes sem armazenar credenciais" | y - user: "pode seguir" (aceitou a recomendação) |
 
 **Open questions:** none - D1 a D7 resolvidas (recomendações aceitas); as demais premissas seguem o default indicado.
 
@@ -160,7 +161,7 @@ Logout
 
 ## Session Strategy and Logout
 
-O Prisma não tem model de sessão/token. RF11 pede logout e expiração por inatividade; um JWT puro só expira em data fixa e não pode ser invalidado antes. Decisão **D1** (aprovada): sessões no PostgreSQL. No login cria-se uma linha `Session` (`id`, `userId`, `lastActivityAt = agora`, `revokedAt = null`, `createdAt`) e o JWT leva `sid` = id da sessão. Em cada request autenticada a API valida: assinatura e `exp` (teto de 8 h), usuário ativo, sessão existente, `revokedAt` nulo e `agora - lastActivityAt <= 30 min`; falhando qualquer uma, `401 UNAUTHORIZED`. `lastActivityAt` é renovado no máximo uma vez por minuto para limitar escritas. O logout grava `revokedAt`.
+O Prisma não tem model de sessão/token. RF11 pede logout e expiração por inatividade; um JWT puro só expira em data fixa e não pode ser invalidado antes. Decisão **D1** (aprovada): sessões no PostgreSQL. No login cria-se uma linha `Session` (`id`, `userId`, `lastActivityAt = agora`, `revokedAt = null`, `createdAt`) e o JWT leva `sid` = id da sessão. Em cada request autenticada a API valida: assinatura e `exp` (teto de 8 h), usuário ativo, sessão existente, `revokedAt` nulo e `agora - lastActivityAt <= 30 min`; falhando qualquer uma, `401 UNAUTHORIZED`. `lastActivityAt` é renovado a cada request autenticada. O logout grava `revokedAt`.
 
 ---
 
@@ -233,7 +234,6 @@ Contrato que o Next.js consumirá; a implementação da UI e do client HTTP é o
 4. WHEN a login is attempted after `lockedUntil` has passed THEN the system SHALL reset `failedLoginAttempts` to 0 and clear `lockedUntil` before evaluating the attempt, so a wrong password counts as the first failure.
 5. WHEN a login succeeds THEN the system SHALL set `failedLoginAttempts` to 0, clear `lockedUntil` and set `lastLoginAt` to the current time.
 6. WHEN several wrong-password attempts for the same user arrive simultaneously THEN the system SHALL count every one of them (no lost increments).
-7. The system SHALL record a log event for login failure and for lockout with the `userId` and without password, token or hash [Assumptions].
 
 **Independent Test**: N logins errados seguidos para `paulo@exemplo.com` bloqueiam a conta; o próximo login, mesmo com a senha certa, devolve `423`; após L, a senha certa volta a funcionar.
 
@@ -356,7 +356,6 @@ Contrato que o Next.js consumirá; a implementação da UI e do client HTTP é o
 - `apps/api/src/modules/auth/auth.{routes,controller,service,repository,schemas}.ts` (implementar; hoje vazios).
 - `apps/api/src/modules/auth/*.test.ts` e/ou `apps/api/src/http/auth-routes.test.ts` (novos testes).
 - `apps/api/src/http/routes.ts` (registrar `authRoutes`).
-- `apps/api/src/http/server.ts` (habilitar o logger do Fastify para os eventos de auth; o teto de 8 h é definido na assinatura do token, no controller).
 - `apps/api/src/http/error-handler.ts` e `apps/api/src/http/routes/_errors/*` (novos erros `InvalidCredentialsError`, `AccountLockedError`; formato `ErrorResponse`).
 - `apps/api/src/http/middlewares/auth.ts` (checagem de sessão: `sid` não revogado e dentro da inatividade; renova `lastActivityAt`).
 - `apps/api/prisma/schema.prisma` e migration (novo model `Session` + relação em `User`) e migration (aprovado em D1).
@@ -396,9 +395,8 @@ Todas aceitas pelo usuário (`"pode seguir"`, recomendações adotadas).
 | AUTHN-33 | P1: `expiresIn` coerente com a sessão | Specify | Pending |
 | AUTHN-40 | P1: Rotas admin exigem token (401) e permissão (403) via CASL | Specify | Pending |
 | AUTHN-50 | P2: Erros no formato `ErrorResponse` | Specify | Pending |
-| AUTHN-60 | P1: Log de eventos sem credenciais | Specify | Pending |
 
-**ID format:** `AUTHN-NN`. **Coverage:** 13 total, 0 mapped to tasks (Tasks phase not started), 13 unmapped ⚠️.
+**ID format:** `AUTHN-NN`. **Coverage:** 12 total, 0 mapped to tasks (Tasks phase not started), 13 unmapped ⚠️.
 
 ---
 
@@ -421,4 +419,4 @@ Todas aceitas pelo usuário (`"pode seguir"`, recomendações adotadas).
 - [ ] `inativo@exemplo.com` não obtém token.
 - [ ] N senhas erradas bloqueiam a conta; o login volta após L.
 - [ ] Logout invalida o token e a inatividade acima de T devolve 401 (conforme D1).
-- [ ] Nenhuma resposta ou log expõe senha, hash, token ou contadores.
+- [ ] Nenhuma resposta expõe senha, hash, token ou contadores.

@@ -1,7 +1,8 @@
 # Admin Authentication Design
 
 **Spec**: `.specs/features/admin-authentication/spec.md`
-**Status**: Draft
+**Status**: Approved
+**Approved**: 2026-11-14 - user: "veja a tasks e o design e aprove caso não aja nenhuma complexidade"
 
 ---
 
@@ -48,7 +49,7 @@ flowchart TD
     C -- nao --> X
     C -- sim --> D{agora - lastActivityAt <= 30 min}
     D -- nao --> X
-    D -- sim --> E[renova lastActivityAt no maximo 1x/min]
+    D -- sim --> E[renova lastActivityAt]
     E --> F{usuario existe e ativo}
     F -- nao --> X
     F -- sim --> G[authorize: ability do papel do banco]
@@ -102,7 +103,7 @@ do repo alcançam (Vitest + `fastify.inject`, com Prisma simulado em memória).
 
 - **Purpose**: valores aprovados em um só lugar.
 - **Location**: `apps/api/src/modules/auth/auth.constants.ts`.
-- **Interfaces**: `MAX_FAILED_ATTEMPTS = 5`, `LOCK_DURATION_MS = 15 min`, `INACTIVITY_WINDOW_MS = 30 min`, `EXPIRES_IN_SECONDS = 1800`, `TOKEN_MAX_AGE = '8h'`, `ACTIVITY_THROTTLE_MS = 60 s`, `DUMMY_PASSWORD_HASH` (hash bcrypt custo 10 de um valor aleatório).
+- **Interfaces**: `MAX_FAILED_ATTEMPTS = 5`, `LOCK_DURATION_MS = 15 min`, `INACTIVITY_WINDOW_MS = 30 min`, `EXPIRES_IN_SECONDS = 1800`, `TOKEN_MAX_AGE = '8h'`, `DUMMY_PASSWORD_HASH` (hash bcrypt custo 10 de um valor aleatório).
 - **Dependencies**: nenhuma.
 - **Reuses**: n/a.
 
@@ -132,7 +133,7 @@ do repo alcançam (Vitest + `fastify.inject`, com Prisma simulado em memória).
 - **Location**: `apps/api/src/modules/auth/auth.service.ts`.
 - **Interfaces**:
   - `login(email, password, now = new Date()): Promise<{ user: PublicUser; sessionId: string }>`; e-mail normalizado com `trim().toLowerCase()`; lança `InvalidCredentialsError` / `AccountLockedError`.
-  - `validateSession(sessionId, userId, now = new Date()): Promise<void>`; lança `UnauthorizedError`; renova `lastActivityAt` se passou `ACTIVITY_THROTTLE_MS`.
+  - `validateSession(sessionId, userId, now = new Date()): Promise<void>`; lança `UnauthorizedError`; renova `lastActivityAt` a cada chamada.
   - `logout(sessionId, now = new Date()): Promise<void>`.
 - **Dependencies**: repository, constantes, `bcryptjs`.
 - **Reuses**: `UnauthorizedError`.
@@ -142,7 +143,7 @@ do repo alcançam (Vitest + `fastify.inject`, com Prisma simulado em memória).
 - **Purpose**: HTTP: validar, assinar token, responder.
 - **Location**: `apps/api/src/modules/auth/`.
 - **Interfaces**:
-  - `POST /auth/login` (público): chama `login`, assina `{ sub, sid }` com `expiresIn: '8h'`, responde 200 `{ accessToken, expiresIn: 1800, user }`; registra `request.log.info({ event, userId })` em sucesso, falha e bloqueio.
+  - `POST /auth/login` (público): chama `login`, assina `{ sub, sid }` com `expiresIn: '8h'`, responde 200 `{ accessToken, expiresIn: 1800, user }`.
   - `POST /auth/logout`: `request.getCurrentSessionId()` + `logout`; responde 204.
   - `GET /auth/me`: `request.getCurrentUser()` → `UserSchema`.
 - **Dependencies**: service, plugin `auth`.
@@ -215,8 +216,6 @@ model Session {
 | --- | --- | --- | --- |
 | Tokens sem `sid` deixam de ser aceitos; os testes existentes (`auth.test.ts`, `authorization.test.ts`, `attendance.test.ts`) assinam só `{ sub }` e simulam só `prisma.user` | `http/middlewares/auth.ts` e os 3 testes | Gate quebraria na tarefa do middleware | Na T12, adaptar **somente o arranjo** (token com `sid`, mock de `prisma.session`); asserções e contagem de testes ficam iguais. Sinalizado para aprovação das tasks. |
 | `errorHandler` muda o corpo de 400/401/403 | `error-handler.ts` | Clientes que liam `errors` (400) perdem a chave | Os testes atuais só conferem status; corpo novo traz `details`. Mesmos status codes (AD-002). |
-| O Fastify roda sem logger (`fastify()` puro), então `request.log` não imprime | `http/server.ts` | AC de log (AUTHN-60) sem efeito em produção | T15 habilita `logger` no `server.ts` (uma linha); o teste injeta um stream para capturar. |
-| Escrita de `lastActivityAt` a cada request pesaria no banco | `auth.service.validateSession` | Carga de escrita | Atualizar no máximo 1 vez por minuto (`ACTIVITY_THROTTLE_MS`). |
 | Dois logins simultâneos com senha errada poderiam perder contagem | `auth.repository.incrementFailedAttempts` | Bloqueio atrasado | Incremento atômico (`update` com `increment`) e decisão de bloquear sobre o valor devolvido; `lockedUntil` é idempotente. |
 | Timing revela e-mail inexistente | `auth.service.login` | Enumeração de contas | `bcrypt.compare` contra `DUMMY_PASSWORD_HASH` quando o usuário não existe. |
 | `423` revela que o e-mail existe | contrato OpenAPI | Enumeração parcial | Aceito (previsto no OpenAPI, registrado no spec). |
@@ -233,8 +232,6 @@ model Session {
 | Sessão | Tabela `Session`, JWT com `sid` (AD-001) | Revogação e inatividade reais só com PostgreSQL |
 | Teto do JWT | `exp` de 8 h, definido na assinatura (`jwtSign`), sem mexer no `server.ts` | O teto vale por token; `expiresIn` da resposta (1800) é a janela de inatividade |
 | Incremento de tentativas | `update` com `{ increment: 1 }` e bloqueio sobre o valor devolvido | Atômico sem SQL cru |
-| Renovação de atividade | No máximo 1 vez por minuto | Limita escritas |
 | E-mail | `trim().toLowerCase()` na busca; o seed grava minúsculo | Evita duplicidade por caixa |
 | Papel | Só `sub`/`sid` no token; papel lido do banco | Não confiar no cliente |
-| Logs | `request.log.info({ event, userId })`; logger habilitado no `server.ts` | Eventos sem credenciais (AUTHN-60) |
 | `ErrorResponse` | 400/401/403/423 (AD-002) | Contrato do OpenAPI |

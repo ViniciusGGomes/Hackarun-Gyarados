@@ -9,7 +9,8 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/admin-authentication/design.md`
-**Status**: Draft
+**Status**: Approved
+**Approved**: 2026-11-14 - user: "veja a tasks e o design e aprove caso não aja nenhuma complexidade"
 **Build**: pnpm --filter @saas/api run check-types
 **Run test**: pnpm --filter @saas/api exec vitest run --reporter=verbose
 
@@ -135,14 +136,14 @@ Tasks T11..T15.
 
 ### T5: Constantes de auth
 
-**What**: Constantes aprovadas (5 tentativas, 15 min, 30 min, 1800 s, 8 h, 60 s) e o hash fictício.
+**What**: Constantes aprovadas (5 tentativas, 15 min, 30 min, 1800 s, 8 h) e o hash fictício.
 **Where**: `apps/api/src/modules/auth/auth.constants.ts`
 **Depends on**: T4
 **Reuses**: `bcryptjs` (custo 10) para gerar o valor de `DUMMY_PASSWORD_HASH` uma única vez.
 **Requirement**: AUTHN-10, AUTHN-32, AUTHN-33
 
 **Done when**:
-- [ ] `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS`, `INACTIVITY_WINDOW_MS`, `EXPIRES_IN_SECONDS`, `TOKEN_MAX_AGE`, `ACTIVITY_THROTTLE_MS`, `DUMMY_PASSWORD_HASH` exportados.
+- [ ] `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS`, `INACTIVITY_WINDOW_MS`, `EXPIRES_IN_SECONDS`, `TOKEN_MAX_AGE`, `DUMMY_PASSWORD_HASH` exportados.
 - [ ] `check-types` passa.
 
 **Tests**: none
@@ -229,7 +230,7 @@ Tasks T11..T15.
 
 ### T10: `validateSession` e `logout` no `auth.service`
 
-**What**: Validar a sessão (existência, dono, revogação, inatividade de 30 min, renovação limitada a 1/min) e revogá-la no logout; testes unitários.
+**What**: Validar a sessão (existência, dono, revogação, inatividade de 30 min, renovação a cada chamada) e revogá-la no logout; testes unitários.
 **Where**: `apps/api/src/modules/auth/auth.service.ts`
 **Depends on**: T9
 **Reuses**: repository (T7), constantes (T5), fake (T8), `UnauthorizedError`.
@@ -237,7 +238,7 @@ Tasks T11..T15.
 
 **Done when**:
 - [ ] Testes unitários em `auth.service.test.ts` para sessão inexistente, de outro usuário, revogada, inativa há mais de 30 min (todos `UnauthorizedError`) e válida.
-- [ ] Atividade dentro da janela mantém a sessão e renova `lastActivityAt` no máximo 1 vez por minuto.
+- [ ] Atividade dentro da janela mantém a sessão e renova `lastActivityAt`.
 - [ ] `logout` grava `revokedAt`; depois disso `validateSession` rejeita.
 - [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
@@ -285,15 +286,14 @@ Tasks T11..T15.
 
 ### T13: Controller de auth
 
-**What**: `loginController`, `logoutController`, `meController`; o login assina `{ sub, sid }` com `expiresIn: '8h'`, responde `expiresIn: 1800` e registra os eventos de log.
+**What**: `loginController`, `logoutController`, `meController`; o login assina `{ sub, sid }` com `expiresIn: '8h'` e responde `expiresIn: 1800`.
 **Where**: `apps/api/src/modules/auth/auth.controller.ts`
 **Depends on**: T12
-**Reuses**: `login`/`logout` (T9, T10), constantes, `reply.jwtSign`, `request.log`.
-**Requirement**: AUTHN-01, AUTHN-20, AUTHN-30, AUTHN-33, AUTHN-60
+**Reuses**: `login`/`logout` (T9, T10), constantes, `reply.jwtSign`.
+**Requirement**: AUTHN-01, AUTHN-20, AUTHN-30, AUTHN-33
 
 **Done when**:
 - [ ] `loginController` responde 200 com `accessToken`, `expiresIn` 1800 e `user`; assina com `expiresIn: '8h'`.
-- [ ] `request.log.info({ event, userId })` para `login_success`, `login_failed`, `account_locked` e `logout`; nunca senha, token ou hash.
 - [ ] `logoutController` responde 204 sem corpo; `meController` devolve o usuário atual.
 - [ ] `check-types` passa.
 
@@ -320,18 +320,17 @@ Tasks T11..T15.
 
 ---
 
-### T15: Registrar as rotas, habilitar o logger e testes de integração
+### T15: Registrar as rotas e testes de integração
 
-**What**: Registrar `authRoutes` em `routes.ts`, habilitar o logger no `server.ts` e testar os 3 endpoints e a integração com CASL.
+**What**: Registrar `authRoutes` em `routes.ts` e testar os 3 endpoints e a integração com CASL.
 **Where**: `apps/api/src/http/routes.ts`
 **Depends on**: T14
-**Reuses**: `routes.ts`, fake de Prisma (T8), padrão `fastify.inject` dos testes existentes; `apps/api/src/http/server.ts` (uma linha: `logger`).
-**Requirement**: AUTHN-01, AUTHN-02, AUTHN-03, AUTHN-04, AUTHN-10, AUTHN-20, AUTHN-30, AUTHN-31, AUTHN-32, AUTHN-33, AUTHN-40, AUTHN-50, AUTHN-60
+**Reuses**: `routes.ts`, fake de Prisma (T8), padrão `fastify.inject` dos testes existentes.
+**Requirement**: AUTHN-01, AUTHN-02, AUTHN-03, AUTHN-04, AUTHN-10, AUTHN-20, AUTHN-30, AUTHN-31, AUTHN-32, AUTHN-33, AUTHN-40, AUTHN-50
 
 **Done when**:
-- [ ] `routes.ts` registra `authRoutes`; `server.ts` passa a criar o Fastify com logger.
+- [ ] `routes.ts` registra `authRoutes`.
 - [ ] Testes de integração `apps/api/src/http/auth-routes.test.ts` cobrem os cenários T1-T24 do spec e os edge cases, com os nomes dos checks.
-- [ ] O log de falha e de bloqueio é capturado por um stream no teste e não contém senha, token nem hash.
 - [ ] Um token emitido pelo login real acessa uma rota `/admin/*` do seu perfil e recebe 403 em rota de Gestor quando for Atendente.
 - [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
@@ -386,9 +385,6 @@ Proof: run test | ✓ successful login resets attempts and sets lastLoginAt
 
 **C15** - Simultaneous wrong passwords are all counted (AUTHN-10, Lock AC 6)
 Proof: run test | ✓ simultaneous wrong passwords are all counted
-
-**C16** - Failed login and lockout are logged with the `userId` and without password, token or hash (AUTHN-60, Lock AC 7)
-Proof: run test | ✓ failed login and lockout are logged without credentials
 
 **C17** - `GET /auth/me` returns the current user read from the database (AUTHN-20, Me AC 1)
 Proof: run test | ✓ me returns the current user from the database
