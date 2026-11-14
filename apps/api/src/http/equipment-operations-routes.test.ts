@@ -633,3 +633,128 @@ describe('POST /api/v1/admin/reservations/:id/pickup', () => {
     }
   })
 })
+
+describe('POST /api/v1/admin/reservations/:id/return', () => {
+  it('return of a picked up reservation returns 200 with returned and the server time', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation({ status: 'picked_up' })
+
+    const response = await giveBack(app, target.id, headers)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ id: target.id, status: 'returned' })
+    expect(response.json().reservation.returnedAt).toBe(NOW.toISOString())
+  })
+
+  it('return stores status times notes completedAt and one history row', async () => {
+    const app = await buildApp()
+    const { headers, userId } = await staff(app)
+    const target = await seedReservation({ status: 'picked_up' })
+
+    await giveBack(app, target.id, headers, { conditionNotes: '  Roda direita com folga  ', returnedAt: '2020-01-01T00:00:00Z' })
+    const after = await stored(target.id)
+
+    expect(after.status).toBe('returned')
+    expect(after.completedAt?.toISOString()).toBe(NOW.toISOString())
+    expect(after.reservation?.returnedAt?.toISOString()).toBe(NOW.toISOString())
+    expect(after.reservation?.returnNotes).toBe('Roda direita com folga')
+    expect(after.history).toHaveLength(2) // the creation and the return
+    expect(after.history[1]).toMatchObject({ fromStatus: 'picked_up', toStatus: 'returned', actorType: 'staff', actorUserId: userId })
+  })
+
+  it('return frees the unit in the agenda and in the public availability', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    // One single active unit, so that one picked up reservation takes all of it.
+    await testPrisma.equipment.updateMany({ where: { type: 'wheelchair' }, data: { active: false } })
+    const [first] = await testPrisma.equipment.findMany({ where: { type: 'wheelchair' }, orderBy: { createdAt: 'asc' } })
+    await testPrisma.equipment.update({ where: { id: first.id }, data: { active: true, quantity: 1 } })
+    const target = await seedReservation({ status: 'picked_up' })
+    const publicSlot = async () =>
+      (await app.inject({ method: 'GET', url: `/api/v1/equipment/wheelchair/availability?date=${TUESDAY}` }))
+        .json()
+        .slots.find((slot: { start: string }) => slot.start === '2026-11-17T13:00:00.000Z')
+
+    expect(slotAt((await agenda(app, headers)).json(), '2026-11-17T13:00:00.000Z').freeUnits).toBe(0)
+    expect((await publicSlot()).availableUnits).toBe(0)
+
+    await giveBack(app, target.id, headers)
+
+    expect(slotAt((await agenda(app, headers)).json(), '2026-11-17T13:00:00.000Z').freeUnits).toBe(1)
+    expect((await publicSlot()).availableUnits).toBe(1)
+  })
+
+  it('late return is accepted without penalty', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation({ status: 'picked_up', time: '08:00' }) // the loan ended at 10:00, it is 10:05
+
+    const before = slotAt((await agenda(app, headers)).json(), '2026-11-17T11:00:00.000Z').reservations[0]
+    const response = await giveBack(app, target.id, headers)
+    const body = response.json()
+
+    expect(before.returnOverdue).toBe(true)
+    expect(response.statusCode).toBe(200)
+    expect(body.status).toBe('returned')
+    expect(body.reservation.returnOverdue).toBe(false)
+    expect(body.reservation.returnedAt).toBe(NOW.toISOString()) // the delay is only visible by endAt vs returnedAt
+    expect(body.reservation.endAt).toBe('2026-11-17T13:00:00.000Z')
+    expect(JSON.stringify(body)).not.toMatch(/fine|penalt|fee|multa/i)
+  })
+
+  it('return of a reservation in another status returns 409', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (const status of ['reserved', 'returned', 'cancelled', 'no_show'] as const) {
+      const target = await seedReservation({ status })
+
+      const response = await giveBack(app, target.id, headers)
+      const after = await stored(target.id)
+
+      expect(response.statusCode, status).toBe(409)
+      expect(response.json(), status).toMatchObject({ statusCode: 409, code: 'INVALID_STATUS_TRANSITION' })
+      expect(after.status, status).toBe(status)
+      expect(after.reservation?.returnedAt, status).toBeNull()
+      expect(after.completedAt, status).toBeNull()
+      expect(after.history, status).toHaveLength(1)
+    }
+  })
+
+  it('return rejects conditionNotes above 300', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation({ status: 'picked_up' })
+
+    const response = await giveBack(app, target.id, headers, { conditionNotes: 'n'.repeat(301) })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    expect((await stored(target.id)).status).toBe('picked_up')
+    expect((await giveBack(app, target.id, headers, { conditionNotes: 'n'.repeat(300) })).statusCode).toBe(200) // the limit itself is fine
+  })
+
+  it('return answers 400 for a malformed id and 404 for unknown other-type or anonymized', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const sac = await testPrisma.request.create({
+      data: { protocol: 'CAP-SACS-4444', type: 'sac_message', status: 'open', visitorName: 'Visitante' },
+    })
+    const anonymized = await seedReservation({ status: 'picked_up' })
+    await testPrisma.request.update({ where: { id: anonymized.id }, data: { anonymizedAt: NOW, visitorPhone: null } })
+
+    const malformed = await giveBack(app, 'not-a-uuid', headers)
+    expect(malformed.statusCode).toBe(400)
+    expect(malformed.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+
+    for (const id of ['3f2a9c1e-7b4d-4e8a-9c3b-1a2b3c4d5e6f', sac.id, anonymized.id]) {
+      const response = await giveBack(app, id, headers)
+
+      expect(response.statusCode, id).toBe(404)
+      expect(response.json(), id).toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    }
+    expect((await stored(anonymized.id)).status).toBe('picked_up')
+    expect((await stored(sac.id)).status).toBe('open')
+  })
+})

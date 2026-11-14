@@ -235,8 +235,8 @@ Tasks T8..T12.
 **Requirement**: EQP-08, EQP-09
 
 **Done when**:
-- [ ] Testes com os nomes dos checks C22 a C28.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Testes com os nomes dos checks C22 a C28.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
