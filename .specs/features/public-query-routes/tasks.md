@@ -151,11 +151,11 @@ Task T9.
 **Requirement**: PUB-01, PUB-02, PUB-03, PUB-06, PUB-11
 
 **Done when**:
-- [ ] `listServices` retorna os ativos ordenados.
-- [ ] `getServiceDetail` monta o `ServiceDetail` (inclui `openingHours`, `isOpenNow`, `pickupLocation`, settings).
-- [ ] `getServiceDetail` lança `NotFoundError` para slug inexistente.
-- [ ] `isOpenNow` respeita `America/Araguaina` (UTC-3).
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (teste unitário do `isOpenNow`).
+- [x] `listServices` retorna os ativos ordenados.
+- [x] `getServiceDetail` monta o `ServiceDetail` (inclui `openingHours`, `isOpenNow`, `pickupLocation`, settings).
+- [x] `getServiceDetail` lança `NotFoundError` para slug inexistente.
+- [x] `isOpenNow` respeita `America/Araguaina` (UTC-3).
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (teste unitário do `isOpenNow`).
 
 **Tests**: unit
 **Gate**: quick
