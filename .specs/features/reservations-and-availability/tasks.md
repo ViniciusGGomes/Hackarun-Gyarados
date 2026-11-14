@@ -183,10 +183,10 @@ Tasks T18..T21.
 **Requirement**: RSV-07
 
 **Done when**:
-- [ ] `setupTestDb()` cria o banco `hackathon_test` se não existir e aplica as migrations uma vez; falha com mensagem clara se o PostgreSQL não responde.
-- [ ] `resetTestDb()` faz `TRUNCATE` das tabelas operacionais e semeia expediente (domingo 14:00-20:00, demais dias 10:00-22:00, como o seed), `ReservationSettings` padrão, dois locais, aviso de privacidade ativo `1.0` e equipamentos (cadeira adulto 4, cadeira infantil 2, cadeira inativa 1, carrinho simples 5, carrinho duplo 2).
-- [ ] `testPrisma` exportado; o helper nunca toca o banco `hackathon`.
-- [ ] `check-types` passa.
+- [x] `setupTestDb()` cria o banco `hackathon_test` se não existir e aplica as migrations uma vez; falha com mensagem clara se o PostgreSQL não responde.
+- [x] `resetTestDb()` faz `TRUNCATE` das tabelas operacionais e semeia expediente (domingo 14:00-20:00, demais dias 10:00-22:00, como o seed), `ReservationSettings` padrão, dois locais, aviso de privacidade ativo `1.0` e equipamentos (cadeira adulto 4, cadeira infantil 2, cadeira inativa 1, carrinho simples 5, carrinho duplo 2).
+- [x] `testPrisma` exportado; o helper nunca toca o banco `hackathon`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
