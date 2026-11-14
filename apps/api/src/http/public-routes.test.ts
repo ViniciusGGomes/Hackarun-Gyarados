@@ -108,24 +108,32 @@ describe('GET /api/v1/services/:slug', () => {
       foundItemStorageDays: 90,
     } as never)
     const app = await buildApp()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-17T15:00:00Z')) // Tuesday 12:00 in America/Araguaina
 
     const response = await app.inject({ method: 'GET', url: '/api/v1/services/cadeiras-de-rodas' })
+    vi.useRealTimers()
 
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toMatchObject({
+    expect(response.json()).toEqual({
+      id: '00000000-0000-4000-8000-000000000001',
       slug: 'cadeiras-de-rodas',
+      name: 'Cadeiras de rodas',
+      shortDescription: 'Empréstimo gratuito',
+      icon: 'wheelchair',
+      kind: 'interactive',
+      flow: 'equipment_reservation',
+      equipmentType: 'wheelchair',
       description: 'Descrição completa',
       howItWorks: ['Escolha o horário', 'Retire no SAC'],
       openingHours: [{ weekday: 2, closed: false, open: '10:00', close: '22:00' }],
+      isOpenNow: true,
       pickupLocation: { id: PICKUP.id, name: 'SAC', floor: 'L1', type: 'service', active: true },
       loanDurationMinutes: 120,
       pickupToleranceMinutes: 15,
       storageDays: 90,
       contactPhone: '(63) 3219-4616',
     })
-    expect(typeof response.json().isOpenNow).toBe('boolean')
-    expect(response.json()).not.toHaveProperty('active')
-    expect(response.json()).not.toHaveProperty('sortOrder')
   })
 
   it('get service missing slug returns 404', async () => {

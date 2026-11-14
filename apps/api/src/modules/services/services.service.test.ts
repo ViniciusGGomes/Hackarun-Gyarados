@@ -62,7 +62,7 @@ beforeEach(() => {
 })
 
 describe('listServices', () => {
-  it('list services returns only active ordered', async () => {
+  it('listServices keeps active services sorted by sortOrder', async () => {
     const rows = [
       serviceRow({ id: '00000000-0000-0000-0000-000000000002', slug: 'b', sortOrder: 2 }),
       serviceRow({ id: '00000000-0000-0000-0000-000000000003', slug: 'inativo', sortOrder: 1, active: false }),
@@ -89,7 +89,7 @@ describe('listServices', () => {
 })
 
 describe('getServiceDetail', () => {
-  it('get service detail by slug', async () => {
+  it('getServiceDetail assembles the detail from service, hours and settings', async () => {
     vi.mocked(prisma.service.findUnique).mockResolvedValue({ ...serviceRow({}), pickupLocation: PICKUP } as never)
     vi.mocked(prisma.openingHour.findMany).mockResolvedValue(HOURS as never)
     vi.mocked(prisma.reservationSettings.findUnique).mockResolvedValue(SETTINGS as never)
@@ -156,6 +156,20 @@ describe('isOpenNow is computed', () => {
 
   it('is false when today is closed', () => {
     expect(isOpenNow(hours, new Date('2026-11-16T15:00:00Z'))).toBe(false) // Mon 12:00 local
+  })
+
+  it('opens at exactly the opening minute and closes at exactly the closing minute', () => {
+    expect(isOpenNow(hours, new Date('2026-11-17T13:00:00Z'))).toBe(true) // Tue 10:00 local
+    expect(isOpenNow(hours, new Date('2026-11-17T12:59:00Z'))).toBe(false) // Tue 09:59 local
+    expect(isOpenNow(hours, new Date('2026-11-17T01:00:00Z'))).toBe(false) // Mon 22:00 local, closed day
+    expect(isOpenNow(hours, new Date('2026-11-17T00:59:00Z'))).toBe(false) // Mon 21:59 local, closed day
+    expect(isOpenNow(hours, new Date('2026-11-18T01:00:00Z'))).toBe(false) // Tue 22:00 local
+    expect(isOpenNow(hours, new Date('2026-11-18T00:59:00Z'))).toBe(true) // Tue 21:59 local
+  })
+
+  it('is UTC-3 and not UTC-4 at 10:30 local', () => {
+    expect(isOpenNow(hours, new Date('2026-11-17T13:30:00Z'))).toBe(true) // Tue 10:30 local; UTC-4 would read 09:30
+    expect(isOpenNow(hours, new Date('2026-11-17T12:30:00Z'))).toBe(false) // Tue 09:30 local
   })
 
   it('uses America/Araguaina (UTC-3), not the UTC date', () => {
