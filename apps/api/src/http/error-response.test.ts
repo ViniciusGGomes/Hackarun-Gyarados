@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { errorHandler } from './error-handler'
+import { AppError } from './routes/_errors/app-error'
 import { AccountLockedError } from './routes/_errors/account-locked-error'
 import { BadRequestError } from './routes/_errors/bad-request-error'
 import { ForbiddenError } from './routes/_errors/forbidden-error'
@@ -29,6 +30,11 @@ async function buildApp() {
   })
   app.get('/invalid-credentials', async () => {
     throw new InvalidCredentialsError()
+  })
+  app.get('/app-error/:status', async (request) => {
+    const { status } = request.params as { status: string }
+    const codes: Record<string, string> = { '400': 'OUTSIDE_OPENING_HOURS', '409': 'SLOT_UNAVAILABLE', '429': 'TOO_MANY_REQUESTS' }
+    throw new AppError(Number(status), codes[status], `msg ${status}`)
   })
   app.get('/locked', async () => {
     throw new AccountLockedError()
@@ -99,5 +105,20 @@ describe('auth errors use the ErrorResponse format', () => {
     expect(response.json().details).toEqual(
       expect.arrayContaining([expect.objectContaining({ field: 'email', issue: expect.any(String) })]),
     )
+  })
+})
+
+describe('AppError becomes its status and code', () => {
+  it.each([
+    [400, 'OUTSIDE_OPENING_HOURS'],
+    [409, 'SLOT_UNAVAILABLE'],
+    [429, 'TOO_MANY_REQUESTS'],
+  ])('status %i answers { statusCode, code, message } with %s', async (status, code) => {
+    const app = await buildApp()
+
+    const response = await app.inject({ method: 'GET', url: `/app-error/${status}` })
+
+    expect(response.statusCode).toBe(status)
+    expect(response.json()).toEqual({ statusCode: status, code, message: `msg ${status}` })
   })
 })

@@ -90,9 +90,9 @@ Tasks T18..T21.
 **Requirement**: RSV-05, RSV-06, RSV-08, RSV-09
 
 **Done when**:
-- [ ] `AppError(409, 'SLOT_UNAVAILABLE', ...)` responde `409` com `{ statusCode, code, message }`; outros códigos idem (400, 429).
-- [ ] Teste de integração acrescentado em `apps/api/src/http/error-response.test.ts`; os testes existentes seguem verdes.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `AppError(409, 'SLOT_UNAVAILABLE', ...)` responde `409` com `{ statusCode, code, message }`; outros códigos idem (400, 429).
+- [x] Teste de integração acrescentado em `apps/api/src/http/error-response.test.ts`; os testes existentes seguem verdes.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

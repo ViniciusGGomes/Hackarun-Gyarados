@@ -3,6 +3,7 @@ import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
 import { ZodError } from 'zod'
 
 import { AccountLockedError } from './routes/_errors/account-locked-error'
+import { AppError } from './routes/_errors/app-error'
 import { BadRequestError } from './routes/_errors/bad-request-error'
 import { ForbiddenError } from './routes/_errors/forbidden-error'
 import { InvalidCredentialsError } from './routes/_errors/invalid-credentials-error'
@@ -23,6 +24,10 @@ export function errorHandler(error: FastifyError, _request: FastifyRequest, repl
     }))
 
     return reply.status(400).send({ statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation error', details })
+  }
+
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({ statusCode: error.statusCode, code: error.code, message: error.message })
   }
 
   if (error instanceof BadRequestError) {
