@@ -27,10 +27,10 @@ export const AgendaQuerySchema = z.object({
 
 export const IdParamsSchema = z.object({ id: z.uuid() })
 
-// The bodies are optional: the contract does not mark `requestBody` as required.
-export const PickupBodySchema = z.object({ documentChecked: z.boolean().optional(), notes: note.optional() }).optional()
+// The bodies are optional: the contract does not mark `requestBody` as required (Fastify hands a missing body as null).
+export const PickupBodySchema = z.object({ documentChecked: z.boolean().optional(), notes: note.optional() }).nullish()
 
-export const ReturnBodySchema = z.object({ conditionNotes: note.optional() }).optional()
+export const ReturnBodySchema = z.object({ conditionNotes: note.optional() }).nullish()
 
 export const AgendaSchema = z.object({
   date: z.string(),

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod'
 
 import { authRoutes } from '../modules/auth/auth.routes'
+import { equipmentOperationsRoutes } from '../modules/equipment-operations/equipment-operations.routes'
 import { equipmentRoutes } from '../modules/equipment/equipment.routes'
 import { foundItemsRoutes } from '../modules/found-items/found-items.routes'
 import { indicatorsRoutes } from '../modules/indicators/indicators.routes'
@@ -29,6 +30,7 @@ export async function routes(app: FastifyInstance) {
   await app.register(foundItemsRoutes)
   await app.register(lostReportsRoutes)
   await app.register(equipmentRoutes)
+  await app.register(equipmentOperationsRoutes)
   await app.register(settingsRoutes)
   await app.register(locationsRoutes)
   await app.register(usersRoutes)

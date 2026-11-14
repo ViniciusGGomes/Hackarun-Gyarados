@@ -28,9 +28,9 @@ export type AgendaReservation = {
 }
 
 /**
- * Puts each reservation of the day in the block that contains its start. A reservation that starts
- * outside every current block (the opening hours changed after it was made) gets a block of its own,
- * so nothing is hidden. Free units use the same rule as the public availability.
+ * Puts each reservation of the day in the block that starts at the same instant. A reservation whose start
+ * is not the start of any current block (the opening hours or the block size changed after it was made)
+ * gets a block of its own, so nothing is hidden. Free units use the same rule as the public availability.
  */
 export function assembleSlots(
   blocks: Block[],
@@ -51,14 +51,12 @@ export function assembleSlots(
 
   for (const reservation of inOrder) {
     const startAt = reservation.startAt.getTime()
-    const block = blocks.find((candidate) => candidate.start.getTime() <= startAt && startAt < candidate.end.getTime())
-    const key = block ? block.start.getTime() : startAt
 
-    if (!slots.has(key)) {
-      slots.set(key, { start: reservation.startAt, end: new Date(startAt + slotMs), items: [] })
+    if (!slots.has(startAt)) {
+      slots.set(startAt, { start: reservation.startAt, end: new Date(startAt + slotMs), items: [] })
     }
 
-    slots.get(key)?.items.push(reservation)
+    slots.get(startAt)?.items.push(reservation)
   }
 
   return [...slots.values()]

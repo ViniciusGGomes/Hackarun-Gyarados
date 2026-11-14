@@ -199,9 +199,10 @@ Tasks T8..T12.
 **Requirement**: EQP-01, EQP-02, EQP-03, EQP-10
 
 **Done when**:
-- [ ] As três rotas com `authorize('read'|'pickup'|'return', 'Reservation')` e schemas Zod; registradas em `http/routes.ts`; os stubs saem de `reservations.routes.ts`.
-- [ ] Cria `apps/api/src/http/equipment-operations-routes.test.ts` com testes com os nomes dos checks C1 a C7, C9, C10 e C29 a C32.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] As três rotas com `authorize('read'|'pickup'|'return', 'Reservation')` e schemas Zod; registradas em `http/routes.ts`; os stubs saem de `reservations.routes.ts`.
+- [x] Cria `apps/api/src/http/equipment-operations-routes.test.ts` com testes com os nomes dos checks C1 a C7, C9, C10 e C29 a C32.
+- [x] Ajustes que os testes exigiram, no mesmo commit: `assembleSlots` agrupa pelo início exato do bloco (a spec manda bloco próprio para início que não é de bloco), os corpos de retirada/devolução aceitam `null` (o Fastify entrega corpo ausente como `null`) e `seedStaff` grava a atividade da sessão no relógio do teste.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

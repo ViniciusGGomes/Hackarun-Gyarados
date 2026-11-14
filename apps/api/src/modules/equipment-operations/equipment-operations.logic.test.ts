@@ -93,6 +93,14 @@ describe('assembleSlots', () => {
     expect(slots[3].reservations.map((item) => item.id)).toEqual(['id-210'])
   })
 
+  it('gives a reservation that starts inside a block but not at its start a slot of its own', () => {
+    const slots = build([reservation({ startMinutes: 10 })])
+
+    expect(slots.map((slot) => slot.start.toISOString())).toEqual([at(0), at(10), at(30), at(60)].map((date) => date.toISOString()))
+    expect(slots[0].reservations).toEqual([])
+    expect(slots[1].reservations.map((item) => item.id)).toEqual(['id-10'])
+  })
+
   it('lists the reservations of a slot in order of creation and sets the overdue flags', () => {
     const late = reservation({ startMinutes: 0, id: 'late', createdAt: at(-5), status: 'reserved' })
     const early = reservation({ startMinutes: 0, id: 'early', createdAt: at(-50), status: 'picked_up' })

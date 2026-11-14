@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 
-import { authorize } from '../../http/middlewares/authorize'
 import { rateLimit } from '../../http/middlewares/rate-limit'
 import { createReservationController, getAvailabilityController } from './reservations.controller'
 import {
@@ -39,19 +38,5 @@ export async function reservationsRoutes(app: FastifyInstance) {
       },
     },
     createReservationController,
-  )
-
-  app.get('/admin/agenda', { preHandler: authorize('read', 'Reservation') }, async () => ({}))
-
-  app.post(
-    '/admin/reservations/:id/pickup',
-    { preHandler: authorize('pickup', 'Reservation') },
-    async () => ({}),
-  )
-
-  app.post(
-    '/admin/reservations/:id/return',
-    { preHandler: authorize('return', 'Reservation') },
-    async () => ({}),
   )
 }

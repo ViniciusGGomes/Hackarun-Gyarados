@@ -101,7 +101,7 @@ export async function seedStaff(role: 'attendant' | 'manager', name = 'Equipe Te
   const user = await testPrisma.user.create({
     data: { name, email: `staff${++staffSeq}-${Date.now()}@teste.com`, passwordHash: 'not-a-real-hash', role },
   })
-  const session = await testPrisma.session.create({ data: { userId: user.id } })
+  const session = await testPrisma.session.create({ data: { userId: user.id, lastActivityAt: new Date() } })
 
   return { userId: user.id, sessionId: session.id }
 }
