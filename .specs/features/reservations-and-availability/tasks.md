@@ -348,9 +348,9 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-04, RSV-09, RSV-10
 
 **Done when**:
-- [ ] Sem `authorize`; `POST /reservations` com `rateLimit({ max: 10, windowMs: 60000 })` em `onRequest`; a consulta sem limite.
-- [ ] As três rotas admin continuam como estavam.
-- [ ] `check-types` passa.
+- [x] Sem `authorize`; `POST /reservations` com `rateLimit({ max: 10, windowMs: 60000 })` em `onRequest`; a consulta sem limite.
+- [x] As três rotas admin continuam como estavam.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
