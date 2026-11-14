@@ -252,8 +252,9 @@ Tasks T8..T12.
 **Requirement**: EQP-11, EQP-12
 
 **Done when**:
-- [ ] Testes com os nomes dos checks C33 a C38, C40 e C41; os de simultaneidade repetem rodadas e conferem uma linha de histórico por transição.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] O repository grava o histórico com `createdAt` = o `now` da operação (o horário da mudança é o mesmo de `pickedUpAt`/`returnedAt`/`completedAt`), ajuste que o teste de auditoria exigiu.
+- [x] Testes com os nomes dos checks C33 a C38, C40 e C41; os de simultaneidade repetem rodadas e conferem uma linha de histórico por transição.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

@@ -4,6 +4,7 @@ import { fastifyJwt } from '@fastify/jwt'
 import { fastify } from 'fastify'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { markNoShows } from '../modules/equipment-operations/equipment-operations.service'
 import { localDateToUtc } from '../modules/reservations/reservations.slots'
 import { resetTestDb, seedStaff, setupTestDb, testPrisma } from '../test/test-db'
 import { getUserPermissions } from '../utils/get-user-permissions'
@@ -74,8 +75,8 @@ type Role = 'attendant' | 'manager'
 type Status = 'reserved' | 'picked_up' | 'returned' | 'cancelled' | 'no_show'
 
 /** A staff user with a valid session and the signed token, created at the current (fake) time. */
-async function staff(app: App, role: Role = 'attendant', claims: Record<string, unknown> = {}) {
-  const { userId, sessionId } = await seedStaff(role)
+async function staff(app: App, role: Role = 'attendant', claims: Record<string, unknown> = {}, name = 'Equipe Teste') {
+  const { userId, sessionId } = await seedStaff(role, name)
   const token = app.jwt.sign({ sub: userId, sid: sessionId, ...claims })
 
   return { userId, sessionId, token, headers: { authorization: `Bearer ${token}` } }
@@ -756,5 +757,199 @@ describe('POST /api/v1/admin/reservations/:id/return', () => {
     }
     expect((await stored(anonymized.id)).status).toBe('picked_up')
     expect((await stored(sac.id)).status).toBe('open')
+  })
+})
+
+const statusesOf = (responses: { statusCode: number }[]) => responses.map((response) => response.statusCode).sort()
+
+describe('concurrency', () => {
+  it('simultaneous pickups of one reservation apply only one', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (let round = 0; round < 3; round++) {
+      const target = await seedReservation()
+
+      const responses = await Promise.all(Array.from({ length: 6 }, () => pickup(app, target.id, headers, { notes: 'balcão' })))
+      const after = await stored(target.id)
+
+      expect(statusesOf(responses), `round ${round}`).toEqual([200, 409, 409, 409, 409, 409])
+      expect(after.status).toBe('picked_up')
+      expect(after.history.filter((entry) => entry.toStatus === 'picked_up')).toHaveLength(1)
+      expect(after.history).toHaveLength(2)
+    }
+  })
+
+  it('simultaneous returns of one reservation apply only one', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (let round = 0; round < 3; round++) {
+      const target = await seedReservation({ status: 'picked_up' })
+
+      const responses = await Promise.all(Array.from({ length: 6 }, () => giveBack(app, target.id, headers)))
+      const after = await stored(target.id)
+
+      expect(statusesOf(responses), `round ${round}`).toEqual([200, 409, 409, 409, 409, 409])
+      expect(after.status).toBe('returned')
+      expect(after.history.filter((entry) => entry.toStatus === 'returned')).toHaveLength(1)
+      expect(after.history).toHaveLength(2)
+    }
+  })
+
+  it('pickup and public cancellation at the same time apply one transition', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (let round = 0; round < 6; round++) {
+      const phone = `6395555000${round}`
+      const target = await seedReservation({ phone })
+
+      const [picked, cancelled] = await Promise.all([
+        pickup(app, target.id, headers),
+        app.inject({ method: 'POST', url: `/api/v1/tracking/${target.protocol}/cancel`, payload: { phone } }),
+      ])
+      const after = await stored(target.id)
+
+      if (picked.statusCode === 200) {
+        expect(cancelled.statusCode, `round ${round}`).toBe(409)
+        expect(after.status).toBe('picked_up')
+      } else {
+        expect(picked.statusCode, `round ${round}`).toBe(409)
+        expect(cancelled.statusCode).toBe(200)
+        expect(after.status).toBe('cancelled')
+      }
+      expect(after.history).toHaveLength(2) // the creation and exactly one transition
+    }
+  })
+
+  it('pickup and no-show run at the same time apply one transition', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    // Each side uses its own clock: the pickup still sees "now" as the deadline (allowed), the run sees one
+    // second later (overdue), so both are eligible and only the row lock decides.
+    const later = new Date(NOW.getTime() + 1000)
+    let pickedCount = 0
+    let missedCount = 0
+
+    for (let round = 0; round < 8; round++) {
+      const target = await seedReservation({ pickupDeadline: NOW })
+
+      const [picked, affected] = await Promise.all([pickup(app, target.id, headers), markNoShows(later)])
+      const after = await stored(target.id)
+
+      if (picked.statusCode === 200) {
+        pickedCount += 1
+        expect({ affected, status: after.status }, `round ${round}`).toEqual({ affected: 0, status: 'picked_up' })
+      } else {
+        missedCount += 1
+        expect(picked.statusCode).toBe(409)
+        expect({ affected, status: after.status }, `round ${round}`).toEqual({ affected: 1, status: 'no_show' })
+      }
+      expect(after.history).toHaveLength(2)
+    }
+    expect(pickedCount + missedCount).toBe(8)
+  })
+
+  it('failure inside a status change rolls back status and history together', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const toPick = await seedReservation()
+    const toReturn = await seedReservation({ status: 'picked_up' })
+    await testPrisma.$executeRawUnsafe(
+      "CREATE OR REPLACE FUNCTION fail_history() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$ LANGUAGE plpgsql",
+    )
+    await testPrisma.$executeRawUnsafe(
+      'CREATE TRIGGER fail_history_trigger BEFORE INSERT ON request_history FOR EACH ROW WHEN (NEW.from_status IS NOT NULL) EXECUTE FUNCTION fail_history()',
+    )
+
+    try {
+      const picked = await pickup(app, toPick.id, headers, { notes: 'não deve ficar' })
+      const returned = await giveBack(app, toReturn.id, headers, { conditionNotes: 'não deve ficar' })
+
+      for (const response of [picked, returned]) {
+        expect(response.statusCode).toBe(500)
+        expect(response.json()).toMatchObject({ statusCode: 500, code: 'INTERNAL_ERROR' })
+        expect(response.body).not.toContain('forced failure')
+      }
+      const afterPick = await stored(toPick.id)
+      const afterReturn = await stored(toReturn.id)
+
+      expect(afterPick).toMatchObject({ status: 'reserved' })
+      expect(afterPick.reservation).toMatchObject({ pickedUpAt: null, pickupNotes: null })
+      expect(afterPick.history).toHaveLength(1)
+      expect(afterReturn).toMatchObject({ status: 'picked_up', completedAt: null })
+      expect(afterReturn.reservation).toMatchObject({ returnedAt: null, returnNotes: null })
+      expect(afterReturn.history).toHaveLength(1)
+    } finally {
+      await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_history_trigger ON request_history')
+      await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_history()')
+    }
+
+    // The failed attempts left nothing locked or half done: the same operations now go through.
+    expect((await pickup(app, toPick.id, headers)).statusCode).toBe(200)
+    expect((await giveBack(app, toReturn.id, headers)).statusCode).toBe(200)
+  })
+})
+
+describe('audit', () => {
+  it('history rows hold previous and new status time actor type and user', async () => {
+    const app = await buildApp()
+    const attendant = await staff(app, 'attendant', {}, 'Ana Atendente')
+    const target = await seedReservation()
+
+    await pickup(app, target.id, attendant.headers)
+    const returnAt = new Date(NOW.getTime() + 10 * MINUTE)
+    vi.setSystemTime(returnAt)
+    const manager = await staff(app, 'manager', {}, 'Gil Gerente')
+    await giveBack(app, target.id, manager.headers)
+    const history = (await stored(target.id)).history
+
+    expect(history).toHaveLength(3)
+    expect(history[0]).toMatchObject({ fromStatus: null, toStatus: 'reserved', actorType: 'visitor', actorUserId: null })
+    expect(history[1]).toMatchObject({ fromStatus: 'reserved', toStatus: 'picked_up', actorType: 'staff', actorUserId: attendant.userId })
+    expect(history[1].createdAt.toISOString()).toBe(NOW.toISOString())
+    expect(history[2]).toMatchObject({ fromStatus: 'picked_up', toStatus: 'returned', actorType: 'staff', actorUserId: manager.userId })
+    expect(history[2].createdAt.toISOString()).toBe(returnAt.toISOString())
+  })
+
+  it('detail history is ascending with actor type user id and name', async () => {
+    const app = await buildApp()
+    const attendant = await staff(app, 'attendant', {}, 'Ana Atendente')
+    const manager = await staff(app, 'manager', {}, 'Gil Gerente')
+    const target = await seedReservation()
+
+    await pickup(app, target.id, attendant.headers)
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * MINUTE))
+    const response = await giveBack(app, target.id, manager.headers)
+    const history = response.json().history
+
+    expect(history.map((entry: { toStatus: string }) => entry.toStatus)).toEqual(['reserved', 'picked_up', 'returned'])
+    expect(history.map((entry: { actor: unknown }) => entry.actor)).toEqual([
+      { type: 'visitor', userId: null, name: null },
+      { type: 'staff', userId: attendant.userId, name: 'Ana Atendente' },
+      { type: 'staff', userId: manager.userId, name: 'Gil Gerente' },
+    ])
+    const times = history.map((entry: { createdAt: string }) => Date.parse(entry.createdAt))
+    expect(times).toEqual([...times].sort((a, b) => a - b))
+  })
+
+  it('public tracking view never exposes history actors or internal notes', async () => {
+    const app = await buildApp()
+    const person = await staff(app, 'attendant', {}, 'Ana Atendente')
+    const phone = '63955550000'
+    const target = await seedReservation({ phone })
+    await testPrisma.requestHistory.updateMany({
+      where: { requestId: target.id },
+      data: { actorUserId: person.userId, internalNote: 'nota interna da equipe' },
+    })
+
+    const response = await app.inject({ method: 'POST', url: `/api/v1/tracking/${target.protocol}/cancel`, payload: { phone, reason: 'mudei de ideia' } })
+
+    expect(response.statusCode).toBe(200)
+    for (const hidden of ['actor', 'actorUserId', 'userId', 'internalNote', 'nota interna da equipe', 'Ana Atendente', person.userId, 'history']) {
+      expect(response.body).not.toContain(hidden)
+    }
   })
 })

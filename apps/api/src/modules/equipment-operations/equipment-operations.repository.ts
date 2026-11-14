@@ -62,7 +62,7 @@ export const equipmentOperationsRepository = {
         data: { pickedUpAt: now, documentChecked: data.documentChecked, pickupNotes: data.notes },
       })
       await tx.requestHistory.create({
-        data: { requestId: id, fromStatus: 'reserved', toStatus: 'picked_up', actorType: 'staff', actorUserId: userId },
+        data: { requestId: id, fromStatus: 'reserved', toStatus: 'picked_up', actorType: 'staff', actorUserId: userId, createdAt: now },
       })
 
       return 'won'
@@ -80,7 +80,7 @@ export const equipmentOperationsRepository = {
 
       await tx.reservation.update({ where: { requestId: id }, data: { returnedAt: now, returnNotes: data.conditionNotes } })
       await tx.requestHistory.create({
-        data: { requestId: id, fromStatus: 'picked_up', toStatus: 'returned', actorType: 'staff', actorUserId: userId },
+        data: { requestId: id, fromStatus: 'picked_up', toStatus: 'returned', actorType: 'staff', actorUserId: userId, createdAt: now },
       })
 
       return 'won'
@@ -111,7 +111,7 @@ export const equipmentOperationsRepository = {
 
         if (count === 1) {
           await tx.requestHistory.create({
-            data: { requestId: id, fromStatus: 'reserved', toStatus: 'no_show', actorType: 'system' },
+            data: { requestId: id, fromStatus: 'reserved', toStatus: 'no_show', actorType: 'system', createdAt: now },
           })
           affected += 1
         }
