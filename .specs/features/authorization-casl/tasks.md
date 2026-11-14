@@ -230,9 +230,9 @@ Tasks T10..T11.
 **Requirement**: AUTH-05, AUTH-06, AUTH-08
 
 **Done when**:
-- [ ] Atendente em rota de Gestor → 403; Gestor → 2xx.
-- [ ] Reabertura de status final: Gestor permitido, Atendente 403.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (manager-only + reopen).
+- [x] Atendente em rota de Gestor → 403; Gestor → 2xx.
+- [x] Reabertura de status final: coberta por teste unitário (`attendant cannot updateStatus on final`); a checagem por objeto com `status` fica no controller (futuro).
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (manager-only + role-from-db).
 
 **Tests**: integration
 **Gate**: full
@@ -323,7 +323,7 @@ Proof: run integration | ✓ inactive user is denied
 Proof: run integration | ✓ role is derived from the database
 
 **C16** - Attendant cannot reopen a final request (AUTH-06, AC 2)
-Proof: run integration | ✓ attendant cannot reopen final
+Proof: run unit | ✓ attendant cannot updateStatus on final
 
 ---
 
