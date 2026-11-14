@@ -311,9 +311,9 @@ Tasks T11..T15.
 **Requirement**: AUTHN-01, AUTHN-20, AUTHN-30
 
 **Done when**:
-- [ ] `/auth/login` sem `authorize` e com `LoginBodySchema`/`LoginResponseSchema`.
-- [ ] `/auth/logout` e `/auth/me` autenticam via plugin (sem ability de domínio); `/auth/me` responde `UserSchema`.
-- [ ] `check-types` passa.
+- [x] `/auth/login` sem `authorize` e com `LoginBodySchema`/`LoginResponseSchema`.
+- [x] `/auth/logout` e `/auth/me` autenticam via plugin (sem ability de domínio); `/auth/me` responde `UserSchema`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
