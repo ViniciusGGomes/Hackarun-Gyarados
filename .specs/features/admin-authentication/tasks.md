@@ -71,10 +71,10 @@ Tasks T11..T15.
 **Requirement**: AUTHN-30, AUTHN-31, AUTHN-32
 
 **Done when**:
-- [ ] `Session` com `id`, `userId`, `lastActivityAt`, `revokedAt`, `createdAt`, relação `onDelete: Cascade` e `@@index([userId])`.
-- [ ] `User` ganha `sessions Session[]`; nenhum outro campo de `User` muda.
-- [ ] Migration criada em `apps/api/prisma/migrations/` e aplicada; `prisma generate` executado.
-- [ ] `check-types` passa.
+- [x] `Session` com `id`, `userId`, `lastActivityAt`, `revokedAt`, `createdAt`, relação `onDelete: Cascade` e `@@index([userId])`.
+- [x] `User` ganha `sessions Session[]`; nenhum outro campo de `User` muda.
+- [x] Migration criada em `apps/api/prisma/migrations/` e aplicada; `prisma generate` executado.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
