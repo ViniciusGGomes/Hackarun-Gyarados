@@ -395,5 +395,5 @@ Proof: run test | ✓ unsupported content type answers 415 and stores nothing
 The feature's live state, written as it happens - a compaction gives no warning.
 
 **Settled mid-build:** none
-**Dispatched:** Verifier @ 22f1427
+**Dispatched:** Verifier @ 22f1427 (returned), fixes at c66889e, Verifier resumed on the new checks @ c66889e
 **Walked:** none

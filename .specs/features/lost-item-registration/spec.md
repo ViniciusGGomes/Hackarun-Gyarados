@@ -373,6 +373,7 @@ Fluxos alternativos: entrada inválida (400, nada gravado); falha no meio da tra
 | I9 | `TrackingView.publicStatus` lista `closed_not_found` e `cancelled` para o objeto perdido, mas o texto geral do OpenAPI diz que `possible_match` é exibido como `searching` | Não afeta esta feature; vale para RF07. |
 | I10 | O texto da operação não diz o que fazer se `unknownLocation` for `false` e `locationId` estiver ausente | Coberto por Q2 (erro `400`). |
 | I11 | `ErrorResponse.code` não tem código próprio para "local inválido" ou "data inválida" | Ambos usam `VALIDATION_ERROR`. |
+| I12 | Limitações conhecidas após a verificação: marcas bidirecionais (U+200E, U+202E) não são removidas, então um `name` só com elas passa; `identificationDetail` só com caracteres de largura zero é gravado como `''`; `identificationDetail: null` e `photoUrl: null` dão `400` (só `email: null` vale como ausente); o `415` e o `413` do Fastify não têm `statusCode`/`code` | Aceitas por simplicidade; tratar quando houver requisito |
 
 ---
 

@@ -1,9 +1,9 @@
 # lost-item-registration proofs
 
-**HEAD**: 8020a97
+**HEAD**: c66889e
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
-**Result**: 40 pass, 0 fail
+**Result**: 48 pass, 0 fail
 
 | Check | Proof | Result |
 | --- | --- | --- |
@@ -46,6 +46,14 @@
 | C37 | `run test / ✓ eleventh request in a minute returns 429 TOO_MANY_REQUESTS` | pass |
 | C38 | `run test / ✓ invalid requests count toward the limit` | pass |
 | C39 | `run test / ✓ limit window ends and requests are accepted again` | pass |
+| C40 | `run test / ✓ limits count characters, so an emoji counts as one` | pass |
+| C41 | `run test / ✓ invisible zero-width name is rejected as empty` | pass |
+| C42 | `run test / ✓ lostDate accepts early years that Date.UTC would shift` | pass |
+| C43 | `run test / ✓ empty optional inputs are stored as absent` | pass |
+| C44 | `run test / ✓ every control character is removed and only the line break survives in long texts` | pass |
+| C45 | `run test / ✓ malformed consent is answered as CONSENT_REQUIRED` | pass |
+| C46 | `run test / ✓ consent is checked before the location` | pass |
+| C47 | `run test / ✓ unsupported content type answers 415 and stores nothing` | pass |
 | Build | `pnpm --filter @saas/api run check-types` | pass |
 
 ## Output
@@ -53,19 +61,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/modules/services/services.service.test.ts > getServiceDetail > get service detail returns flow none and no equipment for an informational service 1ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is true inside the opening window of the local weekday 1ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is false before opening time 0ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is false when today is closed 0ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > opens at exactly the opening minute and closes at exactly the closing minute 1ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is UTC-3 and not UTC-4 at 10:30 local 1ms
- ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > uses America/Araguaina (UTC-3), not the UTC date 0ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > slots > current block is the one that contains the instant 2ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units use peak simultaneity in the loan window 1ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units ignore reservations that only touch the window edges 0ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units never go below zero 0ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt outside hours is outside_hours 1ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt unaligned past or beyond advance is invalid 0ms
+ ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt on an aligned free block inside the window is ok 0ms
 
  Test Files  14 passed (14)
-      Tests  198 passed (198)
-   Start at  08:49:22
-   Duration  32.37s (tests 83%, import 16%, transform 1%)
+      Tests  207 passed (207)
+   Start at  08:57:26
+   Duration  31.19s (tests 81%, import 17%, transform 1%, worker 1%)
 
-    Isolate  14 workers spawned · ~219ms startup each (spawn + environment, per file)
-             at least ~2.84s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  14 workers spawned · ~234ms startup each (spawn + environment, per file)
+             at least ~3.04s faster with isolate: false — reuses workers across files instead of one per file
 ```
