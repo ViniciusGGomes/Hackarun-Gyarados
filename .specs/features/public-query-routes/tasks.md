@@ -207,10 +207,10 @@ Task T9.
 **Requirement**: PUB-04, PUB-05, PUB-07
 
 **Done when**:
-- [ ] `GET /api/v1/locations` público adicionado às rotas admin de `locations`.
-- [ ] `GET /api/v1/privacy-notice` registrado.
-- [ ] Nenhuma rota exige `authorize`.
-- [ ] `check-types` passa.
+- [x] `GET /api/v1/locations` público adicionado às rotas admin de `locations`.
+- [x] `GET /api/v1/privacy-notice` registrado.
+- [x] Nenhuma rota exige `authorize`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
