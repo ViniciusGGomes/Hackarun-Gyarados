@@ -1,7 +1,7 @@
 # public-query-routes proofs
 
-**HEAD**: 8180c59
-**Tree**: dirty - capim-dourado-servicos/docs/specs/authorization-casl.spec.md
+**HEAD**: 55d7490
+**Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
 **Result**: 8 pass, 0 fail
 
@@ -21,19 +21,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/http/authorization.test.ts > manager-only routes > manager accesses manager route 19ms
- ✓ src/http/authorization.test.ts > manager-only routes > role is derived from the database 25ms
- ✓ src/http/authorization.test.ts > manager-only routes > attendant cannot reopen final 16ms
- ✓ src/http/authorization.test.ts > manager-only routes > manager can reopen final 26ms
- ✓ src/http/public-routes.test.ts > GET /api/v1/services/:slug > get service detail by slug 27ms
- ✓ src/http/public-routes.test.ts > GET /api/v1/services/:slug > get service missing slug returns 404 16ms
- ✓ src/http/public-routes.test.ts > GET /api/v1/locations > list locations returns only active 14ms
- ✓ src/http/public-routes.test.ts > GET /api/v1/privacy-notice > get privacy notice returns active 23ms
- ✓ src/http/public-routes.test.ts > GET /api/v1/privacy-notice > get privacy notice without an active notice returns 404 11ms
+ ✓ src/http/authorization.test.ts > manager-only routes > manager accesses manager route 17ms
+ ✓ src/http/authorization.test.ts > manager-only routes > role is derived from the database 24ms
+ ✓ src/http/authorization.test.ts > manager-only routes > attendant cannot reopen final 18ms
+ ✓ src/http/authorization.test.ts > manager-only routes > manager can reopen final 24ms
+ ✓ src/http/public-routes.test.ts > GET /api/v1/services/:slug > get service detail by slug 32ms
+ ✓ src/http/public-routes.test.ts > GET /api/v1/services/:slug > get service missing slug returns 404 20ms
+ ✓ src/http/public-routes.test.ts > GET /api/v1/locations > list locations returns only active 15ms
+ ✓ src/http/public-routes.test.ts > GET /api/v1/privacy-notice > get privacy notice returns active 27ms
+ ✓ src/http/public-routes.test.ts > GET /api/v1/privacy-notice > get privacy notice without an active notice returns 404 12ms
  ✓ src/http/public-routes.test.ts > public routes > public routes work without auth 16ms
 
  Test Files  5 passed (5)
       Tests  27 passed (27)
-   Start at  06:42:09
-   Duration  1.67s (import 57%, tests 31%, transform 10%, worker 1%)
+   Start at  06:44:32
+   Duration  2.17s (import 61%, tests 27%, transform 11%, worker 1%)
 ```
