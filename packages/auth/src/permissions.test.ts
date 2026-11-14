@@ -14,9 +14,9 @@ const manager = {
 } as const
 
 it('only attendant and manager are valid roles', () => {
-  expect(roleSchema.safeParse('attendant').success).toBe(true)
-  expect(roleSchema.safeParse('manager').success).toBe(true)
-  expect(roleSchema.safeParse('ADMIN').success).toBe(false)
+  const roles = roleSchema.options.map((option) => option.value)
+
+  expect(roles).toEqual(['attendant', 'manager'])
 })
 
 it('attendant can read Request', () => {
