@@ -171,9 +171,9 @@ Task T9.
 **Requirement**: PUB-04, PUB-05, PUB-08
 
 **Done when**:
-- [ ] `locations.listActive` retorna ativos.
-- [ ] `privacy.getActive` retorna o vigente e lança `NotFoundError` se não houver ativo.
-- [ ] `check-types` passa.
+- [x] `locations.listActive` retorna ativos.
+- [x] `privacy.getActive` retorna o vigente e lança `NotFoundError` se não houver ativo.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
