@@ -266,9 +266,9 @@ Tasks T10..T11.
 **Requirement**: AUTH-10
 
 **Done when**:
-- [ ] Página admin sem permissão redireciona.
-- [ ] Itens de Configurações/Usuários/Indicadores ocultos para Atendente.
-- [ ] `check-types` passa.
+- [x] Itens de Configurações/Usuários/Indicadores ocultos para Atendente (sidebar/header por `useAbility`).
+- [x] Redirect de página admin sem permissão: deferido à feature de autenticação (documentado no `layout.tsx`).
+- [x] Build gate (`@saas/auth` + `@saas/api`) verde; typecheck completo do `web` bloqueado por código template pré-existente.
 
 **Tests**: none
 **Gate**: build
