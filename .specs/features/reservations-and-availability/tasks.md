@@ -108,9 +108,9 @@ Tasks T18..T21.
 **Requirement**: RSV-04
 
 **Done when**:
-- [ ] Formato `CAP-XXXX-XXXX` (13 caracteres), só caracteres do alfabeto.
-- [ ] Teste unitário `apps/api/src/utils/protocol.test.ts`: formato, alfabeto e 5.000 valores sem repetição.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Formato `CAP-XXXX-XXXX` (13 caracteres), só caracteres do alfabeto.
+- [x] Teste unitário `apps/api/src/utils/protocol.test.ts`: formato, alfabeto e 5.000 valores sem repetição.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick
