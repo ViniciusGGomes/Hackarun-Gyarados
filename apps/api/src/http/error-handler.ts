@@ -54,6 +54,11 @@ export function errorHandler(error: FastifyError, _request: FastifyRequest, repl
     return reply.status(404).send({ statusCode: 404, code: 'NOT_FOUND', message: error.message })
   }
 
+  // Fastify's own 400s (malformed or empty JSON body) use the same code as a failed validation.
+  if (error.statusCode === 400) {
+    return reply.status(400).send({ statusCode: 400, code: 'VALIDATION_ERROR', message: error.message })
+  }
+
   if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
     return reply.status(error.statusCode).send({ message: error.message })
   }

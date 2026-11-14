@@ -278,3 +278,149 @@ describe('location and consent', () => {
     expect(consents[0].acceptedAt).toBeInstanceOf(Date)
   })
 })
+
+describe('failure, privacy and malformed bodies', () => {
+  const FORCE_FAILURE = [
+    "CREATE OR REPLACE FUNCTION fail_consent() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$ LANGUAGE plpgsql",
+    'CREATE TRIGGER fail_consent_trigger BEFORE INSERT ON consents FOR EACH ROW EXECUTE FUNCTION fail_consent()',
+  ]
+
+  /** Makes the insert of the consent fail, after the request and the lost report were already inserted. */
+  async function withFailingConsent<T>(run: () => Promise<T>) {
+    for (const statement of FORCE_FAILURE) await testPrisma.$executeRawUnsafe(statement)
+
+    try {
+      return await run()
+    } finally {
+      await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_consent_trigger ON consents')
+      await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_consent()')
+    }
+  }
+
+  const PERSONAL = [PHONE, 'João Lima', 'maria@email.com', 'Carteira preta de couro', 'Foto de um cachorro']
+
+  it('failure inside the transaction leaves no rows and returns 500 INTERNAL_ERROR', async () => {
+    const app = await buildApp()
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const response = await withFailingConsent(async () => {
+      const failed = await report(app)
+
+      expect(await counts()).toEqual(NOTHING_STORED)
+      return failed
+    })
+
+    expect(response.statusCode).toBe(500)
+    expect(response.json()).toMatchObject({ statusCode: 500, code: 'INTERNAL_ERROR' })
+    expect(response.body).not.toContain('forced failure')
+    // Nothing was left behind: the next report goes through.
+    expect((await report(app)).statusCode).toBe(201)
+  })
+
+  it('route works without a token', async () => {
+    const app = await buildApp()
+
+    const response = await app.inject({ method: 'POST', url: '/api/v1/lost-reports', payload: body() })
+
+    expect(response.headers.authorization).toBeUndefined()
+    expect(response.statusCode).toBe(201)
+  })
+
+  it('response has only the four public fields and no personal data', async () => {
+    const app = await buildApp()
+
+    const response = await report(app, body({ email: 'maria@email.com' }))
+
+    expect(response.statusCode).toBe(201)
+    expect(Object.keys(response.json()).sort()).toEqual(['createdAt', 'protocol', 'status', 'trackingPath'])
+    for (const secret of [...PERSONAL, 'wallet_bag', locations.sacLocationId, '2026-11-12']) {
+      expect(response.body).not.toContain(secret)
+    }
+  })
+
+  it('status sent by the visitor is ignored', async () => {
+    const app = await buildApp()
+
+    const response = await report(app, body({ status: 'delivered', protocol: 'CAP-ZZZZ-ZZZZ', id: '00000000-0000-4000-8000-000000000000' }))
+    const stored = await testPrisma.request.findFirstOrThrow()
+
+    expect(response.statusCode).toBe(201)
+    expect(stored.status).toBe('registered')
+    expect(stored.completedAt).toBeNull()
+    expect(stored.protocol).toBe(response.json().protocol)
+    expect(stored.protocol).not.toBe('CAP-ZZZZ-ZZZZ')
+    expect(stored.id).not.toBe('00000000-0000-4000-8000-000000000000')
+  })
+
+  it('logs never contain the body or personal fields even on 500', async () => {
+    const app = await buildApp()
+    const logged = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => undefined),
+    )
+
+    await report(app, body({ email: 'maria@email.com' }))
+    await withFailingConsent(() => report(app, body({ email: 'maria@email.com' })))
+    const bad = await report(app, body({ phone: 'abc' }))
+
+    expect(bad.statusCode).toBe(400)
+    const output = JSON.stringify(logged.flatMap((spy) => spy.mock.calls))
+    expect(output).toContain('Unexpected error') // the 500 was logged, without data
+    for (const secret of PERSONAL.concat('maria@email.com')) {
+      expect(output).not.toContain(secret)
+    }
+  })
+
+  it('same phone of another visitor is not revealed', async () => {
+    const app = await buildApp()
+    const first = await report(app, body({ name: 'Primeira Pessoa' }))
+
+    const second = await report(app, body({ name: 'Segunda Pessoa' }))
+
+    expect(second.statusCode).toBe(201)
+    expect(second.body).not.toContain(first.json().protocol)
+    expect(second.body).not.toContain('Primeira Pessoa')
+    expect(first.json().protocol).not.toBe(second.json().protocol)
+  })
+
+  it('reason and health fields are ignored and never stored', async () => {
+    const app = await buildApp()
+
+    const response = await report(app, body({ reason: 'motivo', disability: 'cadeirante', healthCondition: 'diabetes' }))
+    const stored = await testPrisma.request.findFirstOrThrow({ include: { lostReport: true } })
+
+    expect(response.statusCode).toBe(201)
+    for (const secret of ['motivo', 'cadeirante', 'diabetes']) {
+      expect(JSON.stringify(stored)).not.toContain(secret)
+    }
+  })
+
+  it('html in description is stored as text and never echoed', async () => {
+    const app = await buildApp()
+    const script = '<script>alert(1)</script> & <b>negrito</b>'
+
+    const response = await report(app, body({ description: script }))
+    const stored = await testPrisma.lostReport.findFirstOrThrow()
+
+    expect(response.statusCode).toBe(201)
+    expect(stored.description).toBe(script)
+    expect(response.body).not.toContain('script')
+  })
+
+  it('empty array and malformed JSON bodies return 400', async () => {
+    const app = await buildApp()
+    const json = { 'content-type': 'application/json' }
+
+    const responses = [
+      await report(app, [] as unknown as Record<string, unknown>),
+      await app.inject({ method: 'POST', url: '/api/v1/lost-reports', headers: json, payload: '{"category": ' }),
+      await app.inject({ method: 'POST', url: '/api/v1/lost-reports', headers: json, payload: '' }),
+      await app.inject({ method: 'POST', url: '/api/v1/lost-reports', headers: json, payload: 'null' }),
+    ]
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+})

@@ -217,8 +217,9 @@ Tasks T7..T10.
 **Requirement**: LIR-07, LIR-08, LIR-10
 
 **Done when**:
-- [ ] Testes com os nomes dos checks C7 e C28 a C35; o de falha força o erro dentro da transação (consentimento com versão sem aviso, depois do `Request` criado) e confere zero linhas.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `http/error-handler.ts`: o `400` do próprio Fastify (JSON malformado ou vazio) responde `{ statusCode, code: 'VALIDATION_ERROR', message }`; o teste de corpos malformados (C35) exigiu isso.
+- [x] Testes com os nomes dos checks C7 e C28 a C35; o de falha força o erro dentro da transação (consentimento com versão sem aviso, depois do `Request` criado) e confere zero linhas.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
