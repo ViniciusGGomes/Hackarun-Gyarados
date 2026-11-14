@@ -91,10 +91,10 @@ Tasks T7..T10.
 **Requirement**: LIR-07, LIR-10
 
 **Done when**:
-- [ ] Um erro inesperado responde `500` com `{ statusCode, code: 'INTERNAL_ERROR', message }` genérico, sem stack nem texto do erro.
-- [ ] O log registra `name` e `code` e nunca a mensagem do erro nem o corpo da requisição.
-- [ ] Teste `unexpected error returns 500 INTERNAL_ERROR and logs only name and code` (check C36) em `error-response.test.ts`; os testes existentes que esperavam `{ message }` no 500 são ajustados ao novo corpo e continuam verdes.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Um erro inesperado responde `500` com `{ statusCode, code: 'INTERNAL_ERROR', message }` genérico, sem stack nem texto do erro.
+- [x] O log registra `name` e `code` e nunca a mensagem do erro nem o corpo da requisição.
+- [x] Teste `unexpected error returns 500 INTERNAL_ERROR and logs only name and code` (check C36) em `error-response.test.ts`; os testes existentes que esperavam `{ message }` no 500 são ajustados ao novo corpo e continuam verdes.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

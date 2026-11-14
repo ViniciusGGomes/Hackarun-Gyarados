@@ -1,7 +1,7 @@
 import { fastify } from 'fastify'
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { errorHandler } from './error-handler'
@@ -35,6 +35,9 @@ async function buildApp() {
     const { status } = request.params as { status: string }
     const codes: Record<string, string> = { '400': 'OUTSIDE_OPENING_HOURS', '409': 'SLOT_UNAVAILABLE', '429': 'TOO_MANY_REQUESTS' }
     throw new AppError(Number(status), codes[status], `msg ${status}`)
+  })
+  app.get('/boom', async () => {
+    throw Object.assign(new Error('duplicate key value (phone)=(63999998888)'), { code: 'P2002' })
   })
   app.get('/locked', async () => {
     throw new AccountLockedError()
@@ -120,5 +123,23 @@ describe('AppError becomes its status and code', () => {
 
     expect(response.statusCode).toBe(status)
     expect(response.json()).toEqual({ statusCode: status, code, message: `msg ${status}` })
+  })
+})
+
+describe('unexpected errors', () => {
+  it('unexpected error returns 500 INTERNAL_ERROR and logs only name and code', async () => {
+    const app = await buildApp()
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const response = await app.inject({ method: 'GET', url: '/boom' })
+
+    expect(response.statusCode).toBe(500)
+    expect(response.json()).toEqual({ statusCode: 500, code: 'INTERNAL_ERROR', message: 'Internal server error.' })
+    expect(logged).toHaveBeenCalledTimes(1)
+    const output = JSON.stringify(logged.mock.calls)
+    expect(output).toContain('P2002')
+    expect(output).not.toContain('63999998888')
+    expect(output).not.toContain('duplicate key')
+    logged.mockRestore()
   })
 })

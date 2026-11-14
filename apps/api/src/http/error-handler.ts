@@ -58,7 +58,8 @@ export function errorHandler(error: FastifyError, _request: FastifyRequest, repl
     return reply.status(error.statusCode).send({ message: error.message })
   }
 
-  console.error(error)
+  // Log only what identifies the failure: the message of a database error can carry form values.
+  console.error('Unexpected error', { name: error.name, code: (error as { code?: unknown }).code })
 
-  return reply.status(500).send({ message: 'Internal server error.' })
+  return reply.status(500).send({ statusCode: 500, code: 'INTERNAL_ERROR', message: 'Internal server error.' })
 }
