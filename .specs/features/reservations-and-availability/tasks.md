@@ -259,9 +259,9 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-02, RSV-03
 
 **Done when**:
-- [ ] `getAvailability(type, date, now)` devolve `equipmentType`, `date`, `slotMinutes`, `loanDurationMinutes`, `nowAvailable` (só hoje) e `slots` com `availableUnits`/`available` por bloco.
-- [ ] Registra `UnmetDemand` só em dia aberto, dentro da janela e sem nenhum bloco livre; falha ao registrar não derruba a resposta.
-- [ ] `check-types` passa.
+- [x] `getAvailability(type, date, now)` devolve `equipmentType`, `date`, `slotMinutes`, `loanDurationMinutes`, `nowAvailable` (só hoje) e `slots` com `availableUnits`/`available` por bloco.
+- [x] Registra `UnmetDemand` só em dia aberto, dentro da janela e sem nenhum bloco livre; falha ao registrar não derruba a resposta.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
