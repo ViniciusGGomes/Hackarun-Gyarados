@@ -621,5 +621,5 @@ Proof: run test | ✓ availability nowAvailable follows the opening hours and th
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** Verifier @ 2aa9a44 (pending)
+**Dispatched:** Verifier @ 2aa9a44 (returned)
 **Walked:** none
