@@ -171,11 +171,40 @@ describe('login() lockout', () => {
   })
 
   it('successful login resets attempts and sets lastLoginAt', async () => {
-    const fake = setup([user({ failedLoginAttempts: 3 })])
+    const fake = setup([user({ failedLoginAttempts: 3, lockedUntil: new Date(NOW.getTime() - minutes(1)) })])
 
     await login('paulo@exemplo.com', PASSWORD, NOW)
 
     expect(fake.users.get(PAULO_ID)).toMatchObject({ failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: NOW })
+  })
+
+  it('a lock that ends exactly now is over', async () => {
+    const fake = setup([user({ failedLoginAttempts: 5, lockedUntil: new Date(NOW.getTime()) })])
+
+    await expect(login('paulo@exemplo.com', 'errada', NOW)).rejects.toBeInstanceOf(InvalidCredentialsError)
+
+    expect(fake.users.get(PAULO_ID)).toMatchObject({ failedLoginAttempts: 1, lockedUntil: null })
+  })
+
+  it('a lock that ends one millisecond from now still refuses', async () => {
+    setup([user({ failedLoginAttempts: 5, lockedUntil: new Date(NOW.getTime() + 1) })])
+
+    await expect(login('paulo@exemplo.com', PASSWORD, NOW)).rejects.toBeInstanceOf(AccountLockedError)
+  })
+
+  it('an inactive user that is also locked is rejected as invalid credentials', async () => {
+    setup([user({ active: false, failedLoginAttempts: 5, lockedUntil: new Date(NOW.getTime() + minutes(5)) })])
+
+    await expect(login('paulo@exemplo.com', PASSWORD, NOW)).rejects.toBeInstanceOf(InvalidCredentialsError)
+  })
+
+  it('simultaneous wrong passwords cross the threshold and lock the account', async () => {
+    const fake = setup([user({})])
+
+    await Promise.allSettled(Array.from({ length: 6 }, () => login('paulo@exemplo.com', 'errada', NOW)))
+
+    expect(fake.users.get(PAULO_ID)?.failedLoginAttempts).toBe(6)
+    expect(fake.users.get(PAULO_ID)?.lockedUntil).toEqual(new Date(NOW.getTime() + minutes(15)))
   })
 
   it('simultaneous wrong passwords are all counted', async () => {

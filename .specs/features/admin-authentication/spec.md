@@ -122,9 +122,9 @@ Login
   api: valida corpo (Zod)               -> 400 VALIDATION_ERROR
   api: busca usuário por e-mail
        inexistente                      -> hash fictício + 401 INVALID_CREDENTIALS
+       inativo                          -> hash fictício + 401 INVALID_CREDENTIALS (antes do bloqueio: não revela o estado)
        lockedUntil > agora              -> 423 ACCOUNT_LOCKED
-       lockedUntil <= agora             -> zera contagem e lockedUntil
-       inativo                          -> 401 INVALID_CREDENTIALS
+       lockedUntil <= agora             -> a tentativa recomeça a contagem (1ª falha)
   api: bcrypt.compare(password, passwordHash)
        falha -> failedLoginAttempts += 1 (atômico); se >= 5: lockedUntil = agora + 15 min
              -> 401 INVALID_CREDENTIALS

@@ -121,6 +121,18 @@ describe('POST /api/v1/auth/login', () => {
     expect(response.json().expiresIn).toBe(1800)
   })
 
+  it('login token carries sub and sid and lives 8 hours', async () => {
+    const app = await buildApp()
+
+    const response = await login(app, 'paulo@exemplo.com')
+    const claims = app.jwt.decode<{ sub: string; sid: string; iat: number; exp: number }>(response.json().accessToken)
+
+    expect(claims?.sub).toBe(PAULO_ID)
+    expect(fake.sessions.get(claims!.sid)).toMatchObject({ userId: PAULO_ID, revokedAt: null })
+    expect(claims!.exp - claims!.iat).toBe(8 * 60 * 60)
+    expect(claims).not.toHaveProperty('role')
+  })
+
   it('login unknown email returns 401 INVALID_CREDENTIALS', async () => {
     const app = await buildApp()
 
@@ -161,8 +173,10 @@ describe('POST /api/v1/auth/login', () => {
       payload: { email: 'paulo@exemplo.com' },
     })
     const badEmail = await login(app, 'not-an-email')
+    const missingEmail = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { password: PASSWORD } })
+    const emptyPassword = await login(app, 'paulo@exemplo.com', '')
 
-    for (const response of [missingPassword, badEmail]) {
+    for (const response of [missingPassword, badEmail, missingEmail, emptyPassword]) {
       expect(response.statusCode).toBe(400)
       expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
     }
@@ -198,9 +212,14 @@ describe('POST /api/v1/auth/login', () => {
       expect((await login(app, 'paulo@exemplo.com', 'errada')).statusCode).toBe(401)
     }
     const sessionsBefore = fake.sessions.size
+    const lockedUntilBefore = fake.users.get(PAULO_ID)?.lockedUntil
+    const compare = vi.spyOn(bcrypt, 'compare')
 
     const response = await login(app, 'paulo@exemplo.com')
 
+    expect(lockedUntilBefore).toBeInstanceOf(Date)
+    expect(compare).not.toHaveBeenCalled()
+    expect(fake.users.get(PAULO_ID)?.lockedUntil).toEqual(lockedUntilBefore)
     expect(response.statusCode).toBe(423)
     expect(response.json()).toMatchObject({ statusCode: 423, code: 'ACCOUNT_LOCKED' })
     expect(response.json()).not.toHaveProperty('accessToken')
@@ -270,6 +289,18 @@ describe('GET /api/v1/auth/me', () => {
       expect(response.statusCode).toBe(401)
       expect(response.json()).toMatchObject({ statusCode: 401, code: 'UNAUTHORIZED' })
     }
+  })
+
+  it('me with a token without sid returns 401', async () => {
+    const app = await buildApp()
+    const findSession = vi.spyOn(fake.prisma.session, 'findUnique')
+    const noSid = app.jwt.sign({ sub: PAULO_ID })
+
+    const response = await authed(app, 'GET', '/api/v1/auth/me', noSid)
+
+    expect(response.statusCode).toBe(401)
+    expect(response.json()).toMatchObject({ code: 'UNAUTHORIZED' })
+    expect(findSession).not.toHaveBeenCalled()
   })
 
   it('me with an expired token returns 401', async () => {
@@ -404,6 +435,31 @@ describe('admin routes with real login tokens', () => {
 
     expect(response.statusCode).toBe(401)
     expect(response.json()).toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('attendant on a manager route returns 403 FORBIDDEN', async () => {
+    const app = await buildApp()
+    const token = await tokenFor(app, 'paulo@exemplo.com')
+
+    const response = await authed(app, 'GET', MANAGER_ONLY_URL, token)
+
+    expect(response.statusCode).toBe(403)
+    expect(response.json()).toMatchObject({ statusCode: 403, code: 'FORBIDDEN' })
+  })
+
+  it('existing admin routes keep their status codes', async () => {
+    const app = await buildApp()
+    const attendant = await tokenFor(app, 'paulo@exemplo.com')
+    const manager = await tokenFor(app, 'gestor@exemplo.com')
+
+    const noToken = await app.inject({ method: 'GET', url: '/api/v1/admin/requests' })
+    const forbidden = await authed(app, 'GET', '/api/v1/admin/users', attendant)
+    const okAttendant = await authed(app, 'GET', '/api/v1/admin/requests', attendant)
+    const okManager = await authed(app, 'GET', '/api/v1/admin/users', manager)
+
+    expect([noToken.statusCode, forbidden.statusCode, okAttendant.statusCode, okManager.statusCode]).toEqual([
+      401, 403, 200, 200,
+    ])
   })
 
   it('token from login opens an admin route of its role', async () => {

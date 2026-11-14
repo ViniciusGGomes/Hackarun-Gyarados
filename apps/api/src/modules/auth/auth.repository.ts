@@ -5,10 +5,11 @@ export const authRepository = {
     return prisma.user.findUnique({ where: { email } })
   },
 
-  resetLock(userId: string) {
+  // Starts a new count after a lock (or a stale count) ended: this attempt is the first failure.
+  restartFailedAttempts(userId: string) {
     return prisma.user.update({
       where: { id: userId },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
+      data: { failedLoginAttempts: 1, lockedUntil: null },
     })
   },
 

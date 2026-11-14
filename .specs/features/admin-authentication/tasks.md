@@ -426,7 +426,7 @@ Proof: run test | ✓ login expiresIn is 1800 seconds
 Proof: run test | ✓ admin route without token returns 401
 
 **C30** - An Attendant on a manager-only route returns 403 (AUTHN-40, Routes AC 2)
-Proof: run test | ✓ attendant returns 403 on manager route
+Proof: run test | ✓ attendant on a manager route returns 403 FORBIDDEN
 
 **C31** - A Manager on a manager-only route is not rejected (AUTHN-40, Routes AC 3)
 Proof: run test | ✓ manager accesses manager route
@@ -438,7 +438,7 @@ Proof: run test | ✓ token from login opens an admin route of its role
 Proof: run test | ✓ auth errors use the ErrorResponse format
 
 **C34** - Existing routes keep their status codes after the error format change (AUTHN-50, Errors AC 2)
-Proof: run test | ✓ attendant can access attendance routes
+Proof: run test | ✓ existing admin routes keep their status codes
 
 **C35** - An e-mail that differs only in letter case signs in as the same user (Edge case)
 Proof: run test | ✓ login email is case-insensitive
@@ -454,6 +454,12 @@ Proof: run test | ✓ two logins create two independent sessions
 
 **C39** - A database failure during login returns 500 without details or a token (Edge case)
 Proof: run test | ✓ login database failure returns 500 without details
+
+**C40** - The login token carries `sub` and `sid`, no role, and lives 8 hours (BR10, T13)
+Proof: run test | ✓ login token carries sub and sid and lives 8 hours
+
+**C41** - A validly signed token without `sid` returns 401 without a session lookup (AUTHN-20)
+Proof: run test | ✓ me with a token without sid returns 401
 
 ---
 

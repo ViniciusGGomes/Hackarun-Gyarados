@@ -38,15 +38,15 @@ export async function login(email: string, password: string, now: Date = new Dat
     throw new AccountLockedError()
   }
 
-  const lockExpired = user.lockedUntil !== null
-  if (lockExpired || user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-    await authRepository.resetLock(user.id)
-  }
+  // A lock that ended, or a count already at the limit, no longer counts against this attempt.
+  const staleCount = user.lockedUntil !== null || user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash)
 
   if (!passwordMatches) {
-    const attempts = await authRepository.incrementFailedAttempts(user.id)
+    const attempts = staleCount
+      ? (await authRepository.restartFailedAttempts(user.id), 1)
+      : await authRepository.incrementFailedAttempts(user.id)
 
     if (attempts >= MAX_FAILED_ATTEMPTS) {
       await authRepository.setLockedUntil(user.id, new Date(now.getTime() + LOCK_DURATION_MS))
