@@ -126,12 +126,12 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-02, RSV-05
 
 **Done when**:
-- [ ] `localDateToUtc`, `localWeekday`, `buildBlocks`, `isWithinWindow`, `freeUnits`, `currentBlock`, `validateStartAt` conforme o design.
-- [ ] `buildBlocks`: blocos de `slotMinutes` da `openTime` a `closeTime − loanDurationMinutes`; vazio para dia fechado ou sem linha; remove bloco cujo fim já passou (mantém o em andamento); vazio além de hoje + `maxAdvanceDays`.
-- [ ] `freeUnits`: unidades − maior simultaneidade na janela, mínimo 0 (reservas que não coexistem não se somam).
-- [ ] `validateStartAt`: `outside_hours` (fora do expediente ou dia fechado), `invalid` (desalinhado, passado ou além da antecedência), senão `ok`.
-- [ ] Teste unitário `reservations.slots.test.ts` cobrindo cada ramo, com `now` injetado e fuso UTC−3.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `localDateToUtc`, `localWeekday`, `buildBlocks`, `isWithinWindow`, `freeUnits`, `currentBlock`, `validateStartAt` conforme o design.
+- [x] `buildBlocks`: blocos de `slotMinutes` da `openTime` a `closeTime − loanDurationMinutes`; vazio para dia fechado ou sem linha; remove bloco cujo fim já passou (mantém o em andamento); vazio além de hoje + `maxAdvanceDays`.
+- [x] `freeUnits`: unidades − maior simultaneidade na janela, mínimo 0 (reservas que não coexistem não se somam).
+- [x] `validateStartAt`: `outside_hours` (fora do expediente ou dia fechado), `invalid` (desalinhado, passado ou além da antecedência), senão `ok`.
+- [x] Teste unitário `reservations.slots.test.ts` cobrindo cada ramo, com `now` injetado e fuso UTC−3.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick
