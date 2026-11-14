@@ -213,3 +213,68 @@ describe('POST /api/v1/lost-reports', () => {
     expect(await counts()).toEqual(NOTHING_STORED)
   })
 })
+
+describe('location and consent', () => {
+  it('unknown inactive or malformed location is rejected with 400', async () => {
+    const app = await buildApp()
+    const inactive = await testPrisma.location.create({
+      data: { name: 'Ala fechada', floor: '1º pavimento', type: 'store_area', active: false },
+    })
+
+    for (const locationId of ['not-a-uuid', '3f2a9c1e-7b4d-4e8a-9c3b-1a2b3c4d5e6f', inactive.id]) {
+      const response = await report(app, body({ locationId }))
+
+      expect(response.statusCode, locationId).toBe(400)
+      expect(response.json(), locationId).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('unknownLocation without locationId is stored as unknown location', async () => {
+    const app = await buildApp()
+    const { locationId: _removed, ...withoutLocation } = body()
+
+    const response = await report(app, { ...withoutLocation, unknownLocation: true })
+    const stored = await testPrisma.lostReport.findFirstOrThrow({ where: { request: { protocol: response.json().protocol } } })
+
+    expect(response.statusCode).toBe(201)
+    expect(stored.locationId).toBeNull()
+    expect(stored.unknownLocation).toBe(true)
+  })
+
+  it('accepted false is rejected with CONSENT_REQUIRED', async () => {
+    const app = await buildApp()
+
+    const response = await report(app, body({ consent: { accepted: false, privacyNoticeVersion: '1.0' } }))
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ statusCode: 400, code: 'CONSENT_REQUIRED' })
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('wrong or missing active privacy version is rejected with CONSENT_REQUIRED', async () => {
+    const app = await buildApp()
+
+    const wrong = await report(app, body({ consent: { accepted: true, privacyNoticeVersion: '0.9' } }))
+
+    await testPrisma.privacyNotice.updateMany({ data: { active: false } })
+    const noActive = await report(app)
+
+    for (const response of [wrong, noActive]) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'CONSENT_REQUIRED' })
+    }
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('valid report stores one consent with version and purpose', async () => {
+    const app = await buildApp()
+
+    const response = await report(app)
+    const consents = await testPrisma.consent.findMany({ where: { request: { protocol: response.json().protocol } } })
+
+    expect(consents).toHaveLength(1)
+    expect(consents[0]).toMatchObject({ privacyNoticeVersion: '1.0', purpose: 'atender a solicitação' })
+    expect(consents[0].acceptedAt).toBeInstanceOf(Date)
+  })
+})

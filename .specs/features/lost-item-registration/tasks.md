@@ -200,8 +200,8 @@ Tasks T7..T10.
 **Requirement**: LIR-06, LIR-09
 
 **Done when**:
-- [ ] Testes com os nomes dos checks C23, C24 e C25 a C27; os casos de erro conferem que nada foi gravado.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Testes com os nomes dos checks C23, C24 e C25 a C27; os casos de erro conferem que nada foi gravado.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
