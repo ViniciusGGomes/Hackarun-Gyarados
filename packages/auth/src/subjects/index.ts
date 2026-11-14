@@ -26,7 +26,7 @@ export type RequestStatus =
   | 'closed'
   | 'cancelled'
 
-export const FINAL_REQUEST_STATUSES: readonly RequestStatus[] = [
+export const FINAL_REQUEST_STATUSES: RequestStatus[] = [
   'returned',
   'delivered',
   'closed_not_found',

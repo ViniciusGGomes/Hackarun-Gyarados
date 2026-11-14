@@ -138,12 +138,12 @@ on the route for an attendant.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| AUTH-01 | P1: Modelo compartilhado | Design | Pending |
-| AUTH-02 | P1: Modelo compartilhado | Design | Pending |
-| AUTH-03 | P1: Modelo compartilhado | Design | Pending |
-| AUTH-04 | P1: Modelo compartilhado | Design | Pending |
-| AUTH-05 | P1: Modelo compartilhado | Design | Pending |
-| AUTH-06 | P2: Reabertura | Design | Pending |
+| AUTH-01 | P1: Modelo compartilhado | Design | Implementing |
+| AUTH-02 | P1: Modelo compartilhado | Design | Implementing |
+| AUTH-03 | P1: Modelo compartilhado | Design | Implementing |
+| AUTH-04 | P1: Modelo compartilhado | Design | Implementing |
+| AUTH-05 | P1: Modelo compartilhado | Design | Implementing |
+| AUTH-06 | P2: Reabertura | Design | Implementing |
 | AUTH-07 | P1: Backend | Design | Pending |
 | AUTH-08 | P1: Backend | Design | Pending |
 | AUTH-09 | P1: Backend | Design | Pending |

@@ -137,11 +137,11 @@ Tasks T10..T11.
 **Requirement**: AUTH-03, AUTH-04, AUTH-05, AUTH-06
 
 **Done when**:
-- [ ] `defineAbilityFor(user)` constrói a ability a partir de `user.role`.
-- [ ] Atendente: nega `updateStatus` em status final, nega `read` de `Indicator`.
-- [ ] Gestor: permite `updateStatus` em final, `read` de `Indicator`, `create` de `User`.
-- [ ] Role desconhecido lança.
-- [ ] Gate check passes: `pnpm --filter @saas/auth exec vitest run` (9 testes passam, sem deleção silenciosa).
+- [x] `defineAbilityFor(user)` constrói a ability a partir de `user.role`.
+- [x] Atendente: nega `updateStatus` em status final, nega `read` de `Indicator`.
+- [x] Gestor: permite `updateStatus` em final, `read` de `Indicator`, `create` de `User`.
+- [x] Role desconhecido lança.
+- [x] Gate check passes: `pnpm --filter @saas/auth exec vitest run` (9 testes passam, sem deleção silenciosa).
 
 **Tests**: unit
 **Gate**: quick
