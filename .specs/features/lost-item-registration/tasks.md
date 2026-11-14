@@ -147,8 +147,8 @@ Tasks T7..T10.
 **Requirement**: LIR-01, LIR-06, LIR-09
 
 **Done when**:
-- [ ] `createLostReport(input)`: `accepted` falso, versão diferente da ativa ou sem aviso ativo → `AppError(400, 'CONSENT_REQUIRED')`; `locationId` sem `Location` ativa → `AppError(400, 'VALIDATION_ERROR')`; sucesso devolve `{ protocol, status: 'registered', createdAt, trackingPath: '/acompanhar/{protocol}' }`.
-- [ ] `check-types` passa.
+- [x] `createLostReport(input)`: `accepted` falso, versão diferente da ativa ou sem aviso ativo → `AppError(400, 'CONSENT_REQUIRED')`; `locationId` sem `Location` ativa → `AppError(400, 'VALIDATION_ERROR')`; sucesso devolve `{ protocol, status: 'registered', createdAt, trackingPath: '/acompanhar/{protocol}' }`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
