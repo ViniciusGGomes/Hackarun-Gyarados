@@ -73,8 +73,8 @@ Tasks T18..T21.
 **Requirement**: RSV-04, RSV-05, RSV-06, RSV-08, RSV-09
 
 **Done when**:
-- [ ] `AppError extends Error` com `statusCode: number` e `code: string`.
-- [ ] `check-types` passa.
+- [x] `AppError extends Error` com `statusCode: number` e `code: string`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
