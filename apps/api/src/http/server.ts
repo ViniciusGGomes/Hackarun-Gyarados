@@ -51,7 +51,7 @@ app.register(fastifyJwt, {
 
 app.register(auth)
 app.register(fastifyCors)
-app.register(routes)
+app.register(routes, { prefix: '/api/v1' })
 
 app.listen({ port: env.SERVER_PORT }).then(() => {
   console.log('HTTP server is running')

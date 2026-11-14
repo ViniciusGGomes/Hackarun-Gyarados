@@ -226,9 +226,9 @@ Task T9.
 **Requirement**: PUB-01, PUB-02, PUB-03, PUB-04, PUB-05, PUB-07
 
 **Done when**:
-- [ ] `routes.ts` registra `servicesRoutes` e `privacyRoutes`.
-- [ ] Testes de integração cobrem os 4 endpoints (200, 404, sem token).
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (testes de integração).
+- [x] `routes.ts` registra `servicesRoutes` e `privacyRoutes`.
+- [x] Testes de integração cobrem os 4 endpoints (200, 404, sem token).
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (testes de integração).
 
 **Tests**: integration
 **Gate**: full
