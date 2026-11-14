@@ -488,6 +488,8 @@ describe('POST /api/v1/reservations', () => {
       { name: 'x'.repeat(121) },
       { phone: 'abc' },
       { phone: '639999' },
+      { phone: '639999999' }, // 9 digits
+      { phone: '639999999999' }, // 12 digits
       { email: 'not-an-email' },
       { notes: 'n'.repeat(201) },
       { mode: 'scheduled', startAt: undefined },
@@ -567,6 +569,9 @@ describe('POST /api/v1/reservations', () => {
 
     expect(second.statusCode).toBe(409)
     expect(second.json()).toMatchObject({ statusCode: 409, code: 'ACTIVE_RESERVATION_LIMIT' })
+    const doubleClick = await reserve(app) // the very same payload again: the limit answers before the slot
+    expect(doubleClick.statusCode).toBe(409)
+    expect(doubleClick.json()).toMatchObject({ code: 'ACTIVE_RESERVATION_LIMIT' })
     expect(otherType.statusCode).toBe(201)
     expect(otherPhone.statusCode).toBe(201)
     expect((await counts()).requests).toBe(3)
