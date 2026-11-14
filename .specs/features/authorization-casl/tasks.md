@@ -212,9 +212,9 @@ Tasks T10..T11.
 **Requirement**: AUTH-04
 
 **Done when**:
-- [ ] Cada rota exige a ability correta (read/updateStatus/sendMessage; pickup/return; read/create/close; read/match/deliver).
-- [ ] Atendente e Gestor acessam as rotas de atendimento.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (atendimento: happy path).
+- [x] Cada rota exige a ability correta (read/updateStatus/sendMessage; pickup/return; read/create/close; read/match/deliver).
+- [x] Atendente e Gestor acessam as rotas de atendimento.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (atendimento: happy path).
 
 **Tests**: integration
 **Gate**: full
