@@ -419,10 +419,10 @@ Tasks T18..T21.
 **Requirement**: RSV-06, RSV-07, RSV-09
 
 **Done when**:
-- [ ] N requisições simultâneas para U unidades livres criam exatamente U reservas e as demais recebem `409 SLOT_UNAVAILABLE`.
-- [ ] Requisições simultâneas do mesmo telefone e tipo criam uma reserva; tipos diferentes não se bloqueiam.
-- [ ] A quantidade de unidades limita as reservas de um bloco; o 11º `POST` na janela recebe `429`; a consulta de disponibilidade nunca recebe `429`.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] N requisições simultâneas para U unidades livres criam exatamente U reservas e as demais recebem `409 SLOT_UNAVAILABLE`.
+- [x] Requisições simultâneas do mesmo telefone e tipo criam uma reserva; tipos diferentes não se bloqueiam.
+- [x] A quantidade de unidades limita as reservas de um bloco; o 11º `POST` na janela recebe `429`; a consulta de disponibilidade nunca recebe `429`.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

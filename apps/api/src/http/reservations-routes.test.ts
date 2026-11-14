@@ -537,3 +537,106 @@ describe('POST /api/v1/reservations', () => {
     expect((await reserve(app, { equipmentType: 'stroller', strollerKind: 'double' })).statusCode).toBe(201)
   })
 })
+
+// ---------------------------------------------------------------------------- limits and concurrency
+
+/** Leaves `quantity` active units of the type: one active row, every other row of the type inactive. */
+async function limitUnits(type: 'wheelchair' | 'stroller', quantity: number) {
+  const rows = await testPrisma.equipment.findMany({ where: { type }, orderBy: { createdAt: 'asc' } })
+
+  await testPrisma.equipment.updateMany({ where: { type }, data: { active: false } })
+  await testPrisma.equipment.update({ where: { id: rows[0].id }, data: { active: true, quantity } })
+}
+
+const statuses = (responses: { statusCode: number }[]) => responses.map((response) => response.statusCode).sort()
+const codes = (responses: { json: () => { code?: string } }[]) => responses.map((response) => response.json().code)
+
+describe('limits and concurrency', () => {
+  it('equipment quantity limits the reservations of a block', async () => {
+    const app = await buildApp()
+    await limitUnits('wheelchair', 2)
+
+    const results = [
+      await reserve(app, { phone: '63911110001' }),
+      await reserve(app, { phone: '63911110002' }),
+      await reserve(app, { phone: '63911110003' }),
+    ]
+
+    expect(results.map((response) => response.statusCode)).toEqual([201, 201, 409])
+    expect(results[2].json()).toMatchObject({ code: 'SLOT_UNAVAILABLE' })
+    const { slots } = (await availability(app, 'wheelchair', TUESDAY)).json()
+    expect(slots[0]).toMatchObject({ availableUnits: 0, available: false })
+  })
+
+  it('simultaneous reservations create exactly as many as there are free units', async () => {
+    const app = await buildApp()
+    await limitUnits('wheelchair', 2)
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, (_, index) => reserve(app, { phone: `6392222000${index}` })),
+    )
+
+    expect(statuses(responses)).toEqual([201, 201, 409, 409, 409, 409, 409, 409])
+    expect(codes(responses.filter((response) => response.statusCode === 409))).toEqual(Array(6).fill('SLOT_UNAVAILABLE'))
+    expect(await testPrisma.reservation.count()).toBe(2)
+  })
+
+  it('simultaneous reservations from one phone create only one', async () => {
+    const app = await buildApp()
+    const times = ['10:00', '10:30', '11:00', '14:00', '15:00', '16:00']
+
+    const responses = await Promise.all(
+      times.map((time) => reserve(app, { startAt: at(TUESDAY, time).toISOString() })),
+    )
+
+    expect(statuses(responses)).toEqual([201, 409, 409, 409, 409, 409])
+    expect(new Set(codes(responses.filter((response) => response.statusCode === 409)))).toEqual(
+      new Set(['ACTIVE_RESERVATION_LIMIT']),
+    )
+    expect(await testPrisma.reservation.count()).toBe(1)
+  })
+
+  it('simultaneous reservations of different types both succeed', async () => {
+    const app = await buildApp()
+    await limitUnits('wheelchair', 2)
+    await limitUnits('stroller', 2)
+
+    const responses = await Promise.all([
+      ...Array.from({ length: 4 }, (_, index) => reserve(app, { phone: `6393333000${index}` })),
+      ...Array.from({ length: 4 }, (_, index) =>
+        reserve(app, { equipmentType: 'stroller', phone: `6394444000${index}` }),
+      ),
+    ])
+
+    expect(responses.filter((response) => response.statusCode === 201)).toHaveLength(4) // 2 of each type
+    expect(await testPrisma.reservation.count({ where: { equipmentType: 'wheelchair' } })).toBe(2)
+    expect(await testPrisma.reservation.count({ where: { equipmentType: 'stroller' } })).toBe(2)
+  })
+
+  it('reservation endpoint is rate limited and availability is not', async () => {
+    const app = await buildApp()
+
+    for (let i = 0; i < 10; i++) {
+      expect((await app.inject({ method: 'POST', url: '/api/v1/reservations', payload: {} })).statusCode).toBe(400)
+    }
+    const blocked = await app.inject({ method: 'POST', url: '/api/v1/reservations', payload: {} })
+
+    expect(blocked.statusCode).toBe(429)
+    expect(blocked.json()).toMatchObject({ statusCode: 429, code: 'TOO_MANY_REQUESTS' })
+
+    const cancelApp = await buildApp()
+    for (let i = 0; i < 10; i++) {
+      await cancelApp.inject({ method: 'POST', url: '/api/v1/tracking/CAP-AAAA-BBBB/cancel', payload: { phone: '63999998888' } })
+    }
+    const cancelBlocked = await cancelApp.inject({
+      method: 'POST',
+      url: '/api/v1/tracking/CAP-AAAA-BBBB/cancel',
+      payload: { phone: '63999998888' },
+    })
+    expect(cancelBlocked.statusCode).toBe(429)
+
+    for (let i = 0; i < 15; i++) {
+      expect((await availability(app, 'wheelchair', TUESDAY)).statusCode).toBe(200)
+    }
+  })
+})
