@@ -114,10 +114,10 @@ Task T9.
 **Requirement**: PUB-01, PUB-02, PUB-11
 
 **Done when**:
-- [ ] `findManyActive` filtra `active: true` e ordena por `sortOrder`.
-- [ ] `findUniqueBySlug` inclui `pickupLocation`.
-- [ ] Métodos para `OpeningHour.findMany` e `ReservationSettings.findUnique`.
-- [ ] `check-types` passa.
+- [x] `findManyActive` filtra `active: true` e ordena por `sortOrder`.
+- [x] `findUniqueBySlug` inclui `pickupLocation`.
+- [x] Métodos para `OpeningHour.findMany` e `ReservationSettings.findUnique`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
