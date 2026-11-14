@@ -1,69 +1,135 @@
-# Hackarun-Gyarados
+# Hackarun Gyarados
 
-**Plataforma inteligente de orientação e atendimento para visitantes do Capim Dourado Shopping, desenvolvida durante o Hackarun.**
+**Central inteligente de orientação e atendimento do Capim Dourado Shopping**
+
+Uma plataforma digital desenvolvida durante o Hackarun com o objetivo de tornar a experiência dos visitantes do Capim Dourado Shopping, em Palmas – TO, mais simples, prática e eficiente.
 
 <p align="center">
-  <strong>Central de Orientação e Atendimento Inteligente</strong>
+  <strong>Encontre informações, acesse serviços e resolva suas solicitações em um só lugar.</strong>
 </p>
 
-## Sobre o projeto
+## Demonstração
 
-O **Hackarun-Gyarados** é um projeto desenvolvido com o objetivo de melhorar a experiência dos visitantes do Capim Dourado Shopping, em Palmas – TO, por meio de uma plataforma digital que centraliza informações, facilita a localização de lojas e serviços e simplifica o acesso aos canais de atendimento.
+Confira a apresentação da solução:
 
-A proposta consiste em desenvolver uma central inteligente de orientação e atendimento, permitindo que os visitantes encontrem informações e registrem solicitações de maneira simples e acessível.
+https://github.com/user-attachments/assets/b7cbe1cb-14da-4922-99ca-da9a4b132b01
 
-Por meio de uma aplicação web responsiva e QR Codes distribuídos em pontos estratégicos do shopping, o visitante poderá acessar a plataforma, consultar serviços, obter orientações e encaminhar solicitações ao responsável adequado.
+---
 
-A solução também prevê o uso de inteligência artificial para auxiliar na interpretação e classificação das solicitações, contribuindo para um encaminhamento mais adequado e uma experiência de atendimento mais eficiente.
+## O problema
 
-## Objetivos
+A experiência de um visitante em um shopping vai além de encontrar lojas e realizar compras. Muitas vezes, ele precisa localizar serviços, encontrar informações, solicitar algum tipo de assistência ou entrar em contato com os setores responsáveis.
 
-- Centralizar informações sobre lojas, serviços e facilidades do shopping.
-- Facilitar a localização de estabelecimentos e pontos de interesse.
-- Simplificar o registro de solicitações e ocorrências.
-- Direcionar as solicitações aos responsáveis correspondentes.
-- Permitir o acompanhamento do andamento das solicitações.
-- Melhorar a experiência dos visitantes e apoiar a gestão do atendimento.
+Quando essas informações e canais de atendimento estão distribuídos em diferentes lugares, o visitante pode enfrentar dificuldades para encontrar o que precisa, identificar o canal correto e acompanhar suas solicitações.
 
-## Proposta da solução
+Essa fragmentação pode gerar uma experiência pouco prática, aumentar o tempo necessário para resolver problemas e dificultar a comunicação entre visitantes e shopping.
 
-A plataforma será organizada em duas áreas principais:
+## Nossa solução
 
-- **Central do visitante:** permite consultar lojas e serviços, buscar informações, registrar solicitações e acompanhar atendimentos.
-- **Painel administrativo:** permite visualizar e gerenciar solicitações, atualizar seus status e administrar informações relacionadas aos serviços e responsáveis.
+O **Hackarun Gyarados** propõe uma central digital que reúne informações, serviços e canais de atendimento do Capim Dourado Shopping em uma única plataforma.
 
-## Tecnologias e arquitetura
+Por meio de uma aplicação web responsiva, acessível também por QR Codes distribuídos em pontos estratégicos do shopping, o visitante poderá acessar os serviços de forma rápida, sem precisar instalar um aplicativo.
 
-O projeto será desenvolvido utilizando um monorepositório (monorepo), mantendo as aplicações frontend e backend organizadas em um único repositório.
+A plataforma busca simplificar a jornada do visitante, desde a busca por informações até a resolução de uma solicitação, oferecendo mais autonomia, praticidade e transparência durante o atendimento.
+
+A solução também prevê o uso de inteligência artificial para auxiliar na interpretação e classificação das solicitações, contribuindo para um encaminhamento mais adequado aos responsáveis.
+
+## Principais funcionalidades
+
+### Para os visitantes
+
+- **Centralização de informações:** acesso facilitado às informações sobre lojas, serviços e facilidades do shopping.
+- **Orientação:** consulta e localização de estabelecimentos e pontos de interesse.
+- **Reserva de equipamentos:** consulta de disponibilidade e solicitação de equipamentos, como cadeiras de rodas e carrinhos de bebê.
+- **Achados e perdidos:** registro de objetos perdidos e acompanhamento das solicitações.
+- **Atendimento ao cliente (SAC):** registro de dúvidas, reclamações, sugestões e outras solicitações.
+- **Acompanhamento por protocolo:** consulta do andamento das solicitações sem necessidade de criar uma conta.
+- **Acesso por QR Code:** entrada rápida na plataforma por meio de códigos distribuídos pelo shopping.
+
+### Para os atendentes e gestores
+
+- **Gestão de solicitações:** visualização, organização e atualização dos atendimentos.
+- **Controle de equipamentos:** gerenciamento de reservas, retiradas e devoluções.
+- **Gestão de achados e perdidos:** cadastro de itens encontrados, identificação de possíveis correspondências e registro de entregas.
+- **Painel administrativo:** gerenciamento dos serviços, equipamentos, locais e usuários.
+- **Indicadores:** acompanhamento de informações relacionadas aos atendimentos e à operação.
+
+## Experiência do visitante
+
+A proposta é tornar o acesso aos serviços do shopping mais intuitivo e reduzir etapas desnecessárias durante o atendimento.
+
+O fluxo esperado é simples:
+
+1. O visitante acessa a plataforma pelo celular ou por um QR Code.
+2. Encontra o serviço ou a informação de que precisa.
+3. Registra uma solicitação, quando necessário.
+4. Recebe um protocolo para acompanhar o atendimento.
+5. Consulta as atualizações até a conclusão da solicitação.
+
+Dessa forma, o visitante ganha mais autonomia para resolver suas necessidades, enquanto o shopping passa a contar com um canal centralizado para organizar e acompanhar os atendimentos.
+
+## Arquitetura e tecnologias
+
+O projeto utiliza uma arquitetura de monorepositório (monorepo), mantendo frontend, backend e pacotes compartilhados organizados em um único repositório.
 
 | Tecnologia | Aplicação |
 |---|---|
-| TypeScript | Linguagem principal do projeto |
+| TypeScript | Linguagem principal |
 | Next.js | Desenvolvimento do frontend |
 | Node.js | Ambiente de execução do backend |
-| Fastify | Desenvolvimento da API REST |
+| Fastify | Construção da API REST |
 | PostgreSQL | Banco de dados relacional |
 | Prisma ORM | Acesso e gerenciamento dos dados |
-| Docker | Containerização e padronização do ambiente |
-| JWT | Autenticação e controle de acesso |
+| Docker | Containerização do ambiente |
+| JWT | Autenticação |
+| CASL | Controle de permissões e autorização |
+| Zod | Validação de dados |
+| pnpm Workspaces | Gerenciamento do monorepo |
+| Turborepo | Orquestração de tarefas |
 
-O backend seguirá uma arquitetura monolítica modular, com organização em camadas e separação de responsabilidades baseada no padrão MVC, adaptado ao contexto de uma API REST.
+### Organização do projeto
+
+```text
+capim-dourado-servicos/
+├── apps/
+│   ├── api/          # Backend - Fastify
+│   └── web/          # Frontend - Next.js
+├── packages/
+│   ├── auth/         # Autenticação e permissões compartilhadas
+│   └── shared/       # Tipos, schemas e contratos compartilhados
+├── docker-compose.yml
+├── pnpm-workspace.yaml
+└── turbo.json
+```
+
+O backend segue uma arquitetura monolítica modular, com separação de responsabilidades e organização por domínios, facilitando a manutenção e evolução da aplicação.
 
 ## Tecnologia sorteada
 
-A tecnologia sorteada foi **Node.js / FastAPI**. Após avaliação da equipe, foi escolhido o **Node.js**, que será utilizado no desenvolvimento do backend, em conjunto com TypeScript e Fastify.
+A tecnologia sorteada para o desafio foi **Node.js / FastAPI**.
 
-Essa escolha permite utilizar uma linguagem compartilhada entre frontend e backend, além de facilitar a integração entre os componentes da aplicação.
+Após avaliação da equipe, optamos pelo **Node.js**, utilizando TypeScript e Fastify no desenvolvimento do backend.
 
-## Como rodar o projeto
+Essa escolha permite compartilhar a linguagem entre frontend e backend, além de aproveitar o conhecimento técnico da equipe e facilitar a integração entre as aplicações.
+
+---
+
+## Como executar o projeto
 
 ### Pré-requisitos
 
 - [Node.js](https://nodejs.org/) 18 ou superior
-- [pnpm](https://pnpm.io/) 9 (`npm install -g pnpm@9`)
-- [Docker](https://www.docker.com/) e Docker Compose (para o PostgreSQL)
+- [pnpm](https://pnpm.io/) 9
+- [Docker](https://www.docker.com/) e Docker Compose
 
-### 1. Instalar as dependências
+### 1. Clonar o repositório
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd capim-dourado-servicos
+```
+
+### 2. Instalar as dependências
 
 Na raiz do projeto:
 
@@ -71,88 +137,99 @@ Na raiz do projeto:
 pnpm install
 ```
 
-### 2. Configurar as variáveis de ambiente
+### 3. Configurar as variáveis de ambiente
 
-Copie o arquivo de exemplo para `.env` na raiz do projeto:
+Copie o arquivo de exemplo:
 
 ```bash
 cp .env.example .env
 ```
 
+Configure as variáveis necessárias:
+
 | Variável | Descrição | Exemplo |
 |---|---|---|
 | `SERVER_PORT` | Porta da API | `3333` |
-| `DATABASE_URL` | Conexão com o PostgreSQL | `postgresql://postgres:docker@localhost:5433/hackathon` |
-| `JWT_SECRET` | Segredo usado para assinar os tokens JWT | qualquer string segura |
-| `NEXT_PUBLIC_API_URL` | URL da API usada pelo frontend | `http://localhost:3333` |
+| `DATABASE_URL` | Conexão com PostgreSQL | `postgresql://postgres:docker@localhost:5433/hackathon` |
+| `JWT_SECRET` | Segredo para assinatura dos tokens | Uma string segura |
+| `NEXT_PUBLIC_API_URL` | URL pública da API para o frontend | `http://localhost:3333` |
 
-O frontend (Next.js) lê o `.env` da própria pasta. Para ele, copie o mesmo arquivo:
+Para o frontend, copie o arquivo de ambiente:
 
 ```bash
 cp .env apps/web/.env.local
 ```
 
-### 3. Subir o banco de dados
+> Confira os arquivos `.env.example` de cada aplicação para identificar outras variáveis obrigatórias.
+
+### 4. Iniciar o banco de dados
 
 ```bash
 docker compose up -d
 ```
 
-O PostgreSQL fica disponível em `localhost:5433` (usuário `postgres`, senha `docker`, banco `hackathon`).
+O PostgreSQL ficará disponível em `localhost:5433`, conforme a configuração padrão do projeto.
 
-### 4. Rodar o backend (API)
+### 5. Executar o backend
 
 ```bash
 cd apps/api
 
-# Cria as tabelas no banco
+# Executar as migrations
 pnpm db:migrate
 
-# (Opcional) Popula o banco com dados de exemplo
+# Popular o banco com dados de exemplo
 pnpm prisma db seed
 
-# Inicia a API em modo de desenvolvimento
+# Iniciar a API
 pnpm dev
 ```
 
+A API ficará disponível em:
+
 - API: http://localhost:3333
-- Documentação Swagger: http://localhost:3333/docs
-- Testes: `pnpm test`
-- Visualizar o banco: `pnpm db:studio`
+- Swagger: http://localhost:3333/docs
 
-### 5. Rodar o frontend
+### 6. Executar o frontend
 
-Em outro terminal, com a API em execução:
+Em outro terminal:
 
 ```bash
 cd apps/web
 pnpm dev
 ```
 
-- Aplicação: http://localhost:3000
+A aplicação ficará disponível em:
 
-### Rodar tudo de uma vez
+http://localhost:3000
 
-Na raiz do projeto, o Turborepo inicia backend e frontend juntos:
+### Executar tudo pela raiz
+
+Também é possível iniciar as aplicações utilizando o Turborepo:
 
 ```bash
 pnpm dev
 ```
 
+---
+
 ## Documentação
 
-A documentação técnica inicial apresenta o planejamento do projeto, incluindo a definição do problema, proposta da solução, estrutura inicial das telas, arquitetura, tecnologias, infraestrutura e organização da equipe.
+O planejamento técnico reúne as informações sobre o problema, a proposta da solução, os requisitos, as funcionalidades e as decisões técnicas do projeto.
 
 📄 **[Acessar o Planejamento Técnico Inicial](https://docs.google.com/document/d/1FftF9Ybjzb5fKMiLHq7U5n_dYZjmE4DK0Qwt5WAsZzY/edit?usp=sharing)**
 
-## Equipe — Gyarados
+---
+
+## Equipe Gyarados
 
 Projeto desenvolvido por uma equipe de quatro integrantes durante o Hackarun.
 
----
+- Vinicius
+- Igor
+- Bruna
+- Estefany
 
 <p align="center">
-  Desenvolvido com dedicação pela equipe <strong>Gyarados</strong> durante o Hackarun.
-  <br />
-  <strong>Integrantes:</strong> Vinicius, Igor, Bruna e Estefany.
+  Desenvolvido pela equipe <strong>Gyarados</strong> durante o Hackarun.
 </p>
