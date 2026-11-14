@@ -466,5 +466,5 @@ Proof: run test | ✓ me with a token without sid returns 401
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** Verifier @ f912ff2 (pending)
+**Dispatched:** Verifier @ f912ff2 (returned)
 **Walked:** none
