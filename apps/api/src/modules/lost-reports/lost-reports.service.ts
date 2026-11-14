@@ -5,7 +5,9 @@ import type { CreateLostReportInput } from './lost-reports.schemas'
 export async function createLostReport(input: CreateLostReportInput) {
   const activeVersion = await repository.findActivePrivacyVersion()
 
-  if (!input.consent.accepted || !activeVersion || input.consent.privacyNoticeVersion !== activeVersion) {
+  const { accepted, privacyNoticeVersion } = input.consent
+
+  if (accepted !== true || !activeVersion || privacyNoticeVersion !== activeVersion) {
     throw new AppError(400, 'CONSENT_REQUIRED', 'Accept the current privacy notice to continue')
   }
 
@@ -25,7 +27,7 @@ export async function createLostReport(input: CreateLostReportInput) {
     unknownLocation: input.unknownLocation === true,
     lostDate: input.lostDate,
     lostPeriod: input.lostPeriod ?? 'unknown',
-    privacyNoticeVersion: input.consent.privacyNoticeVersion,
+    privacyNoticeVersion: activeVersion,
   })
 
   return { protocol, status: 'registered', createdAt, trackingPath: `/acompanhar/${protocol}` }

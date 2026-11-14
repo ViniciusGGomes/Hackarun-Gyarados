@@ -172,6 +172,51 @@ describe('CreateLostReportSchema', () => {
     expect(parse({ description: `  ${'d'.repeat(500)}\u0000 ` }).success).toBe(true)
   })
 
+  it('every control character is removed and only the line break survives in long texts', () => {
+    const codes = [...Array.from({ length: 32 }, (_, i) => i), 0x7f, ...Array.from({ length: 32 }, (_, i) => 0x80 + i)]
+
+    for (const code of codes.filter((value) => value !== 0x0a)) {
+      const char = String.fromCharCode(code)
+      const cleaned = parse({ name: `Ma${char}ria`, description: `a${char}b` })
+
+      expect(cleaned.success && [cleaned.data.name, cleaned.data.description], `U+${code.toString(16)}`).toEqual(['Maria', 'ab'])
+    }
+
+    const kept = parse({ name: 'Maria Antônia', description: 'a\nb ¡¢ ã' })
+    expect(kept.success && [kept.data.name, kept.data.description]).toEqual(['Maria Antônia', 'a\nb ¡¢ ã'])
+
+    const shortName = parse({ name: 'Ma\nria' })
+    expect(shortName.success && shortName.data.name).toBe('Maria') // short texts lose the line break too
+  })
+
+  it('limits count characters, so an emoji counts as one', () => {
+    expect(parse({ name: `${'a'.repeat(119)}😀` }).success).toBe(true)
+    expect(parse({ description: `${'d'.repeat(499)}😀` }).success).toBe(true)
+    expect(failedFields(parse({ name: `${'a'.repeat(120)}😀` }))).toContain('name')
+    expect(failedFields(parse({ description: `${'d'.repeat(500)}😀` }))).toContain('description')
+  })
+
+  it('invisible zero-width name is rejected as empty', () => {
+    expect(failedFields(parse({ name: '​​' }))).toContain('name')
+    expect(failedFields(parse({ description: '﻿ ⁠' }))).toContain('description')
+  })
+
+  it('lostDate accepts early years that Date.UTC would shift', () => {
+    expect(parse({ lostDate: '0050-01-01' }).success).toBe(true)
+    expect(parse({ lostDate: '0001-01-01' }).success).toBe(true)
+    expect(failedFields(parse({ lostDate: '0050-02-30' }))).toContain('lostDate')
+  })
+
+  it('empty optional strings are treated as absent', () => {
+    const result = parse({ identificationDetail: '   ', email: '', photoUrl: ' ' })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.identificationDetail).toBeUndefined()
+    expect(result.data.email).toBeUndefined()
+    expect(result.data.photoUrl).toBeUndefined()
+  })
+
   it('unknown fields are stripped', () => {
     const result = parse({ status: 'delivered', protocol: 'CAP-AAAA-BBBB', id: 'x', reason: 'saúde', foundItemId: 'y' })
 

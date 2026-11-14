@@ -3,6 +3,7 @@
 import { fastify } from 'fastify'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { lostReportsRepository } from '../modules/lost-reports/lost-reports.repository'
 import { resetTestDb, setupTestDb, testPrisma } from '../test/test-db'
 import { generateProtocol } from '../utils/protocol'
 import { errorHandler } from './error-handler'
@@ -105,7 +106,8 @@ describe('POST /api/v1/lost-reports', () => {
     expect(result.status).toBe('registered')
     expect(result.protocol).toMatch(/^CAP-[A-Z0-9]{4}-[A-Z0-9]{4}$/)
     expect(result.trackingPath).toBe(`/acompanhar/${result.protocol}`)
-    expect(Number.isNaN(Date.parse(result.createdAt))).toBe(false)
+    const stored = await testPrisma.request.findUniqueOrThrow({ where: { protocol: result.protocol } })
+    expect(result.createdAt).toBe(stored.createdAt.toISOString())
   })
 
   it('valid report persists request lost report consent and history', async () => {
@@ -201,12 +203,18 @@ describe('POST /api/v1/lost-reports', () => {
 
   it('route validates the body with the schema before the controller', async () => {
     const app = await buildApp()
+    const consentCheck = vi.spyOn(lostReportsRepository, 'findActivePrivacyVersion')
     const { description: _removed, ...withoutDescription } = body()
 
-    const response = await report(app, withoutDescription)
+    // The consent is also wrong: only the schema (which runs first) can answer VALIDATION_ERROR.
+    const response = await report(app, {
+      ...withoutDescription,
+      consent: { accepted: true, privacyNoticeVersion: '0.0' },
+    })
 
     expect(response.statusCode).toBe(400)
     expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    expect(consentCheck).not.toHaveBeenCalled() // the service never ran
     expect(response.json().details).toEqual(
       expect.arrayContaining([expect.objectContaining({ field: 'description', issue: expect.any(String) })]),
     )
@@ -267,6 +275,43 @@ describe('location and consent', () => {
     expect(await counts()).toEqual(NOTHING_STORED)
   })
 
+  it('malformed consent is answered as CONSENT_REQUIRED', async () => {
+    const app = await buildApp()
+    const malformed = [
+      { accepted: 'true', privacyNoticeVersion: '1.0' },
+      { accepted: null, privacyNoticeVersion: '1.0' },
+      { privacyNoticeVersion: '1.0' },
+      { accepted: true, privacyNoticeVersion: '' },
+      { accepted: true, privacyNoticeVersion: 1 },
+      { accepted: true },
+      {},
+    ]
+
+    for (const consent of malformed) {
+      const response = await report(app, body({ consent }))
+
+      expect(response.statusCode, JSON.stringify(consent)).toBe(400)
+      expect(response.json(), JSON.stringify(consent)).toMatchObject({ code: 'CONSENT_REQUIRED' })
+    }
+
+    // No consent object at all is a missing required field.
+    const { consent: _removed, ...withoutConsent } = body()
+    expect((await report(app, withoutConsent)).json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('consent is checked before the location', async () => {
+    const app = await buildApp()
+    const inactive = await testPrisma.location.create({
+      data: { name: 'Ala fechada', floor: '1º pavimento', type: 'store_area', active: false },
+    })
+
+    const response = await report(app, body({ locationId: inactive.id, consent: { accepted: false, privacyNoticeVersion: '1.0' } }))
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ code: 'CONSENT_REQUIRED' })
+  })
+
   it('valid report stores one consent with version and purpose', async () => {
     const app = await buildApp()
 
@@ -275,7 +320,8 @@ describe('location and consent', () => {
 
     expect(consents).toHaveLength(1)
     expect(consents[0]).toMatchObject({ privacyNoticeVersion: '1.0', purpose: 'atender a solicitação' })
-    expect(consents[0].acceptedAt).toBeInstanceOf(Date)
+    const request = await testPrisma.request.findUniqueOrThrow({ where: { protocol: response.json().protocol } })
+    expect(Math.abs(consents[0].acceptedAt.getTime() - request.createdAt.getTime())).toBeLessThan(5000)
   })
 })
 
@@ -322,8 +368,15 @@ describe('failure, privacy and malformed bodies', () => {
 
     const response = await app.inject({ method: 'POST', url: '/api/v1/lost-reports', payload: body() })
 
-    expect(response.headers.authorization).toBeUndefined()
+    const badToken = await app.inject({
+      method: 'POST',
+      url: '/api/v1/lost-reports',
+      headers: { authorization: 'Bearer not-a-real-token' },
+      payload: body(),
+    })
+
     expect(response.statusCode).toBe(201)
+    expect(badToken.statusCode).toBe(201)
   })
 
   it('response has only the four public fields and no personal data', async () => {
@@ -406,6 +459,36 @@ describe('failure, privacy and malformed bodies', () => {
     expect(response.body).not.toContain('script')
   })
 
+  it('unsupported content type answers 415 and stores nothing', async () => {
+    const app = await buildApp()
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/lost-reports',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'category=keys&description=chaves',
+    })
+
+    // The contract only has JSON; Fastify's own answer for other types is kept.
+    expect(response.statusCode).toBe(415)
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('empty optional inputs are stored as absent', async () => {
+    const app = await buildApp()
+
+    const response = await report(app, body({ identificationDetail: '  ', email: '', photoUrl: '' }))
+    const stored = await testPrisma.request.findUniqueOrThrow({
+      where: { protocol: response.json().protocol },
+      include: { lostReport: true },
+    })
+
+    expect(response.statusCode).toBe(201)
+    expect(stored.visitorEmail).toBeNull()
+    expect(stored.lostReport?.identificationDetail).toBeNull()
+    expect(stored.lostReport?.photoUrl).toBeNull()
+  })
+
   it('empty array and malformed JSON bodies return 400', async () => {
     const app = await buildApp()
     const json = { 'content-type': 'application/json' }
@@ -458,8 +541,10 @@ describe('rate limit', () => {
     for (let i = 0; i < 10; i++) await report(app)
     expect((await report(app)).statusCode).toBe(429)
 
-    vi.setSystemTime(new Date(NOW.getTime() + 61_000))
+    vi.setSystemTime(new Date(NOW.getTime() + 59_999))
+    expect((await report(app)).statusCode).toBe(429)
 
+    vi.setSystemTime(new Date(NOW.getTime() + 60_000))
     expect((await report(app)).statusCode).toBe(201)
   })
 })

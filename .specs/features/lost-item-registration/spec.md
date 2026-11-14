@@ -81,6 +81,7 @@ Q1-Q5 eram decisões de produto e foram respondidas pelo usuário (recomendaçõ
 | Limite de abuso | 10 requisições por minuto por IP em `POST /lost-reports`, em memória, contando também requisições inválidas | Mesmo limite aprovado em `reservations` (D8); o OpenAPI declara `429` | y - user: "aceito as recomendações, lembra do zod para validar os dados nas rotas" |
 | Protocolo | `CAP-XXXX-XXXX` (alfabeto sem ambíguos, gerador criptográfico), com checagem prévia e repetição em colisão | `docs/backend.md`, `utils/protocol.ts` | y (documentado) |
 | Logs | Erros inesperados registram só o tipo/mensagem do erro, nunca o corpo da requisição nem campos do formulário | `AGENTS.MD`; pedido (não registrar dados pessoais) | y (documentado) |
+| Texto vazio opcional | `identificationDetail`, `email` e `photoUrl` enviados vazios ou só com espaços valem como ausentes | Um formulário real envia inputs vazios; rejeitar impediria o registro | y - agent default after the verification finding F7; user to correct |
 | Estratégia de teste | Integração contra o PostgreSQL de teste (`hackathon_test`) como em `reservations` e unitários sem banco para a validação | Prova a atomicidade e a persistência de verdade; decidir a forma exata no Design | y - user: "aceito as recomendações, lembra do zod para validar os dados nas rotas" |
 
 **Open questions:** none - Q1 a Q5 resolvidas (recomendações aceitas) e as demais premissas confirmadas.
@@ -262,6 +263,26 @@ Fluxos alternativos: entrada inválida (400, nada gravado); falha no meio da tra
 
 ---
 
+### P1: Robustez da entrada ⭐ MVP
+
+**User Story**: As the shopping, I want odd but legitimate or hostile input handled predictably so that the register never stores invisible or contradictory data.
+
+**Why P1**: Achados da verificação independente; regras que a spec original não dizia.
+
+**Acceptance Criteria**:
+
+1. The system SHALL count the text limits in characters, so that an emoji counts as one character, like the database column. (LIR-12)
+2. The system SHALL remove zero-width characters (U+200B to U+200D, U+2060, U+FEFF) and C1 control characters (U+0080 to U+009F) from `name`, `description`, `identificationDetail` and `email` before validating, so that a `name` made only of them is rejected as empty. (LIR-12)
+3. WHEN `lostDate` has a year before 100 (for example `0050-01-01`) and is a real calendar date THEN the system SHALL accept it, because the spec sets no lower limit (Q3). (LIR-12)
+4. WHEN `identificationDetail`, `email` or `photoUrl` is sent empty or only whitespace THEN the system SHALL treat it as absent and store it empty, so a form posting empty optional inputs can register. (LIR-12)
+5. IF `consent` is present but `accepted` is not `true` (absent, `null`, a string) or `privacyNoticeVersion` is absent, empty or not a string THEN the system SHALL return `400` with code `CONSENT_REQUIRED`; a missing `consent` object stays `VALIDATION_ERROR`. (LIR-12)
+6. IF the consent is wrong and the `locationId` is also invalid THEN the system SHALL return `CONSENT_REQUIRED`, because the consent is checked first. (LIR-12)
+7. IF the `Content-Type` is not JSON THEN the system SHALL keep Fastify's own `415` answer and SHALL NOT persist anything; the contract only defines JSON. (LIR-12)
+
+**Independent Test**: Enviar `consent: { accepted: "true" }` devolve `400 CONSENT_REQUIRED`; um nome só com U+200B devolve `400 VALIDATION_ERROR`.
+
+---
+
 ### P2: Proteção contra abuso
 
 **User Story**: As the shopping, I want automated attempts limited so that the form is not flooded.
@@ -384,8 +405,9 @@ Todas aceitas pelo usuário (`"aceito as recomendações, lembra do zod para val
 | LIR-09 | P1: Exigir consentimento | Specify | Pending |
 | LIR-10 | P1: Proteger dados pessoais e o status (privacidade e logs) | Specify | Pending |
 | LIR-11 | P2: Proteção contra abuso | Specify | Pending |
+| LIR-12 | P1: Robustez da entrada | Specify | Pending |
 
-**ID format:** `LIR-NN`. **Coverage:** 11 total, 0 mapped to tasks (Tasks phase not started), 11 unmapped ⚠️.
+**ID format:** `LIR-NN`. **Coverage:** 12 total; LIR-12 was added after the independent verification, with checks C40 to C47.
 
 ---
 

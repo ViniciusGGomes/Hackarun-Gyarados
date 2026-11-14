@@ -364,6 +364,30 @@ Proof: run test | ✓ invalid requests count toward the limit
 **C39** - After the one-minute window the origin is accepted again (LIR-11, Abuse AC 3)
 Proof: run test | ✓ limit window ends and requests are accepted again
 
+**C40** - Text limits count characters: an emoji counts as one (LIR-12, Robust AC 1)
+Proof: run test | ✓ limits count characters, so an emoji counts as one
+
+**C41** - A name made only of zero-width characters is rejected as empty (LIR-12, Robust AC 2)
+Proof: run test | ✓ invisible zero-width name is rejected as empty
+
+**C42** - A real `lostDate` before the year 100 is accepted (LIR-12, Robust AC 3)
+Proof: run test | ✓ lostDate accepts early years that Date.UTC would shift
+
+**C43** - Empty optional inputs are stored as absent (LIR-12, Robust AC 4)
+Proof: run test | ✓ empty optional inputs are stored as absent
+
+**C44** - Every C0, DEL and C1 control character is removed and only the line break survives in long texts (LIR-04, LIR-12, Val AC 16)
+Proof: run test | ✓ every control character is removed and only the line break survives in long texts
+
+**C45** - A malformed `consent` (not `true`, empty or non-string version) answers `CONSENT_REQUIRED` (LIR-12, Robust AC 5)
+Proof: run test | ✓ malformed consent is answered as CONSENT_REQUIRED
+
+**C46** - The consent is checked before the location (LIR-12, Robust AC 6)
+Proof: run test | ✓ consent is checked before the location
+
+**C47** - A non-JSON content type answers `415` and stores nothing (LIR-12, Robust AC 7)
+Proof: run test | ✓ unsupported content type answers 415 and stores nothing
+
 ---
 
 ## Handoff
