@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod'
 
+import { authRoutes } from '../modules/auth/auth.routes'
 import { equipmentRoutes } from '../modules/equipment/equipment.routes'
 import { foundItemsRoutes } from '../modules/found-items/found-items.routes'
 import { indicatorsRoutes } from '../modules/indicators/indicators.routes'
@@ -18,6 +19,7 @@ export async function routes(app: FastifyInstance) {
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
 
+  await app.register(authRoutes)
   await app.register(servicesRoutes)
   await app.register(privacyRoutes)
   await app.register(requestsRoutes)

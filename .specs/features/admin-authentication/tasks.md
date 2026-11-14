@@ -329,10 +329,10 @@ Tasks T11..T15.
 **Requirement**: AUTHN-01, AUTHN-02, AUTHN-03, AUTHN-04, AUTHN-10, AUTHN-20, AUTHN-30, AUTHN-31, AUTHN-32, AUTHN-33, AUTHN-40, AUTHN-50
 
 **Done when**:
-- [ ] `routes.ts` registra `authRoutes`.
-- [ ] Testes de integração `apps/api/src/http/auth-routes.test.ts` cobrem os cenários T1-T24 do spec e os edge cases, com os nomes dos checks.
-- [ ] Um token emitido pelo login real acessa uma rota `/admin/*` do seu perfil e recebe 403 em rota de Gestor quando for Atendente.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `routes.ts` registra `authRoutes`.
+- [x] Testes de integração `apps/api/src/http/auth-routes.test.ts` cobrem os cenários T1-T24 do spec e os edge cases, com os nomes dos checks.
+- [x] Um token emitido pelo login real acessa uma rota `/admin/*` do seu perfil e recebe 403 em rota de Gestor quando for Atendente.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
