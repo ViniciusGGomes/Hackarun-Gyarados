@@ -182,9 +182,9 @@ Tasks T7..T10.
 **Requirement**: LIR-01, LIR-02, LIR-03, LIR-04
 
 **Done when**:
-- [ ] `POST /lost-reports` com `onRequest: rateLimit({ max: 10, windowMs: 60_000 })`, `body: CreateLostReportSchema` e `response: { 201: ProtocolCreatedSchema }`; as rotas admin do arquivo ficam como estão.
-- [ ] Cria `apps/api/src/http/lost-reports-routes.test.ts` com testes com os nomes dos checks C1 a C6 e C8, usando o banco de teste, relógio controlado e `resetTestDb`.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `POST /lost-reports` com `onRequest: rateLimit({ max: 10, windowMs: 60_000 })`, `body: CreateLostReportSchema` e `response: { 201: ProtocolCreatedSchema }`; as rotas admin do arquivo ficam como estão.
+- [x] Cria `apps/api/src/http/lost-reports-routes.test.ts` com testes com os nomes dos checks C1 a C6 e C8, usando o banco de teste, relógio controlado e `resetTestDb`.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
