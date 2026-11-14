@@ -1,9 +1,9 @@
 # equipment-operations proofs
 
-**HEAD**: 66d6a64
+**HEAD**: 08d7d21
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
-**Result**: 55 pass, 0 fail
+**Result**: 66 pass, 0 fail
 
 | Check | Proof | Result |
 | --- | --- | --- |
@@ -61,6 +61,17 @@
 | C52 | `run test / ✓ detail carries no credentials or data of other visitors` | pass |
 | C53 | `run test / ✓ job log is written only when reservations were affected or the run failed` | pass |
 | C54 | `run test / ✓ job runner skips an overlapping run` | pass |
+| C55 | `run test / ✓ invalid input is answered 401 without a token and 403 without the ability` | pass |
+| C56 | `run test / ✓ each route is wired to its own ability` | pass |
+| C57 | `run test / ✓ agenda shows an anonymized reservation without the visitor name` | pass |
+| C58 | `run test / ✓ agenda of a type without active equipment has zero units` | pass |
+| C59 | `run test / ✓ agenda keeps other days and other equipment types out` | pass |
+| C60 | `run test / ✓ agenda overdue flags are set for late pickups and returns` | pass |
+| C61 | `run test / ✓ pickup and return with a malformed JSON body return 400 and an empty object is accepted` | pass |
+| C62 | `run test / ✓ agenda free units use the peak and not the count of reservations` | pass |
+| C63 | `run test / ✓ pickup and return accept an empty body even with a JSON content type` | pass |
+| C64 | `run test / ✓ a malformed or empty JSON body is answered 401 without a token and 403 without the ability` | pass |
+| C65 | `run test / ✓ a JSON body with an unsafe key is read as plain data and cannot change the result` | pass |
 | Build | `pnpm --filter @saas/api run check-types` | pass |
 
 ## Output
@@ -68,19 +79,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > overdue flags and pickup window > pickup window includes both extremes 0ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > places each reservation in the block that contains its start, in block order 3ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > counts free units from reserved and picked up only 2ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > gives a reservation outside the current blocks a slot of its own 0ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > gives a reservation that starts inside a block but not at its start a slot of its own 0ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > lists the reservations of a slot in order of creation and sets the overdue flags 0ms
- ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > returns the blocks with no reservations and every unit free for an empty day 0ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > overdue flags and pickup window > pickup window includes both extremes 1ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > places each reservation in the block that contains its start, in block order 7ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > counts free units from reserved and picked up only 3ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > gives a reservation outside the current blocks a slot of its own 1ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > gives a reservation that starts inside a block but not at its start a slot of its own 1ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > lists the reservations of a slot in order of creation and sets the overdue flags 1ms
+ ✓ src/modules/equipment-operations/equipment-operations.logic.test.ts > assembleSlots > returns the blocks with no reservations and every unit free for an empty day 1ms
 
  Test Files  17 passed (17)
-      Tests  268 passed (268)
-   Start at  09:56:42
-   Duration  46.01s (tests 86%, import 13%, transform 1%)
+      Tests  279 passed (279)
+   Start at  10:14:58
+   Duration  53.36s (tests 88%, import 11%, transform 1%)
 
-    Isolate  17 workers spawned · ~200ms startup each (spawn + environment, per file)
-             at least ~3.21s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  17 workers spawned · ~223ms startup each (spawn + environment, per file)
+             at least ~3.56s faster with isolate: false — reuses workers across files instead of one per file
 ```
