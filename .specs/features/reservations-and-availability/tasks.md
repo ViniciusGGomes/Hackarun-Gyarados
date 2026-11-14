@@ -239,11 +239,11 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-03, RSV-04, RSV-06, RSV-07, RSV-08
 
 **Done when**:
-- [ ] Leituras: `getSettings`, `getOpeningHour`, `getEquipmentUnits`, `getPickupLocation`, `findActiveReservations`, `findActiveLocation`, `findActivePrivacyVersion`.
-- [ ] `recordUnmetDemand(type, requestedFor)`.
-- [ ] `createReservationTx`: `$transaction` com `pg_advisory_xact_lock(hashtext('equipment:<tipo>'))`, contagem do limite por telefone e tipo (status `reserved`/`picked_up`), releitura das reservas da janela, `freeUnits`, protocolo (repete em colisão), `Request` + `Reservation` + `Consent` + `RequestHistory`; resultado `created` | `limit` | `slot_unavailable`.
-- [ ] `cancelReservationTx`: por protocolo + telefone; `updateMany` condicional em `status = reserved`; grava `completedAt` e histórico; resultado `not_found` | `not_cancellable` | `cancelled`.
-- [ ] `check-types` passa.
+- [x] Leituras: `getSettings`, `getOpeningHour`, `getEquipmentUnits`, `getPickupLocation`, `findActiveReservations`, `findActiveLocation`, `findActivePrivacyVersion`.
+- [x] `recordUnmetDemand(type, requestedFor)`.
+- [x] `createReservationTx`: `$transaction` com `pg_advisory_xact_lock(hashtext('equipment:<tipo>'))`, contagem do limite por telefone e tipo (status `reserved`/`picked_up`), releitura das reservas da janela, `freeUnits`, protocolo (repete em colisão), `Request` + `Reservation` + `Consent` + `RequestHistory`; resultado `created` | `limit` | `slot_unavailable`.
+- [x] `cancelReservationTx`: por protocolo + telefone; `updateMany` condicional em `status = reserved`; grava `completedAt` e histórico; resultado `not_found` | `not_cancellable` | `cancelled`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
