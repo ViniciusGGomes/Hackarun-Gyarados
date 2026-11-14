@@ -164,9 +164,9 @@ Tasks T8..T12.
 **Requirement**: EQP-01, EQP-04, EQP-05, EQP-06, EQP-08, EQP-09, EQP-13
 
 **Done when**:
-- [ ] `getAgenda`, `registerPickup`, `registerReturn` e `markNoShows` com `now` por parâmetro.
-- [ ] Ordem das respostas: `404` (não existe, não é reserva ou anonimizada), `400` (documento exigido), `409 INVALID_STATUS_TRANSITION` com mensagem por motivo; sucesso devolve o `RequestDetail`.
-- [ ] `check-types` passa.
+- [x] `getAgenda`, `registerPickup`, `registerReturn` e `markNoShows` com `now` por parâmetro.
+- [x] Ordem das respostas: `404` (não existe, não é reserva ou anonimizada), `400` (documento exigido), `409 INVALID_STATUS_TRANSITION` com mensagem por motivo; sucesso devolve o `RequestDetail`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
