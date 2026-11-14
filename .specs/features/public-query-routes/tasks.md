@@ -78,9 +78,9 @@ Task T9.
 **Requirement**: PUB-01, PUB-02, PUB-09
 
 **Done when**:
-- [ ] `ServiceSchema` com `id, slug, name, shortDescription, icon, kind, flow, equipmentType`.
-- [ ] `ServiceDetailSchema` com os campos do `ServiceDetail` + `openingHours` e `isOpenNow`.
-- [ ] `check-types` passa.
+- [x] `ServiceSchema` com `id, slug, name, shortDescription, icon, kind, flow, equipmentType`.
+- [x] `ServiceDetailSchema` com os campos do `ServiceDetail` + `openingHours` e `isOpenNow`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
