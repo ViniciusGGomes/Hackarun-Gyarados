@@ -1,9 +1,9 @@
 # reservations-and-availability proofs
 
-**HEAD**: 2aa9a44
+**HEAD**: 54a343c
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
-**Result**: 48 pass, 0 fail
+**Result**: 57 pass, 0 fail
 
 | Check | Proof | Result |
 | --- | --- | --- |
@@ -54,6 +54,15 @@
 | C45 | `run test / ✓ cancel and pickup at the same time apply one transition` | pass |
 | C46 | `run test / ✓ cancel of a request that is not a reservation returns 409` | pass |
 | C47 | `run test / ✓ cancel view exposes only public fields without a token` | pass |
+| C48 | `run test / ✓ availability still answers when recording the unmet demand fails` | pass |
+| C49 | `run test / ✓ reservation retries the protocol after a collision` | pass |
+| C50 | `run test / ✓ booking lock is per type and availability takes no lock` | pass |
+| C51 | `run test / ✓ equipment reduction keeps stored reservations and limits new ones` | pass |
+| C52 | `run test / ✓ advance window setting applies to bookings and availability` | pass |
+| C53 | `run test / ✓ reservation failure log holds no personal data` | pass |
+| C54 | `run test / ✓ reservation accepts values at the documented limits` | pass |
+| C55 | `run test / ✓ reservation now mode needs a free unit in the current block` | pass |
+| C56 | `run test / ✓ availability nowAvailable follows the opening hours and the local day` | pass |
 | Build | `pnpm --filter @saas/api run check-types` | pass |
 
 ## Output
@@ -61,19 +70,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/http/reservations-routes.test.ts > limits and concurrency > simultaneous reservations of different types both succeed 468ms
- ✓ src/http/reservations-routes.test.ts > limits and concurrency > reservation endpoint is rate limited and availability is not 687ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel valid reservation returns 200 and records history 289ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel frees the unit for availability and a new booking 573ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel unknown protocol wrong phone or anonymized returns the same 404 453ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel in a final or picked up status returns 409 REQUEST_NOT_CANCELLABLE 390ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel invalid phone or reason returns 400 296ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel and pickup at the same time apply one transition 559ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel of a request that is not a reservation returns 409 229ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel view exposes only public fields without a token 269ms
+ ✓ src/http/reservations-routes.test.ts > limits and concurrency > booking lock is per type and availability takes no lock 529ms
+ ✓ src/http/reservations-routes.test.ts > limits and concurrency > reservation endpoint is rate limited and availability is not 198ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel valid reservation returns 200 and records history 99ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel frees the unit for availability and a new booking 170ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel unknown protocol wrong phone or anonymized returns the same 404 135ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel in a final or picked up status returns 409 REQUEST_NOT_CANCELLABLE 138ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel invalid phone or reason returns 400 82ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel and pickup at the same time apply one transition 425ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel of a request that is not a reservation returns 409 66ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel view exposes only public fields without a token 94ms
 
  Test Files  12 passed (12)
-      Tests  149 passed (149)
-   Start at  08:02:50
-   Duration  14.42s (tests 75%, import 22%, transform 3%, worker 1%)
+      Tests  158 passed (158)
+   Start at  08:17:47
+   Duration  11.39s (tests 70%, import 26%, transform 3%, worker 1%)
 ```
