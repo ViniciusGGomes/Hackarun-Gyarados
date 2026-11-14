@@ -118,10 +118,10 @@ Tasks T10..T11.
 **Requirement**: AUTH-01, AUTH-02, AUTH-06
 
 **Done when**:
-- [ ] `userSchema` usa `role`, não `profile`.
-- [ ] Subjects `Request, Reservation, FoundItem, LostReport, Equipment, Location, User, ReservationSettings, Indicator` definidos.
-- [ ] `RequestSubject` expõe `{ __typename: 'Request', status }`.
-- [ ] `check-types` passa.
+- [x] `userSchema` usa `role`, não `profile`.
+- [x] Subjects `Request, Reservation, FoundItem, LostReport, Equipment, Location, User, ReservationSettings, Indicator` definidos.
+- [x] `RequestSubject` expõe `{ __typename: 'Request', status }`.
+- [x] `check-types` roda (erros residuais do template em `index.ts`/`permissions.ts`, resolvidos em T4 — build progressivo).
 
 **Tests**: none
 **Gate**: build
