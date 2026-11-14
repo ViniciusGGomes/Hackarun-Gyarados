@@ -195,8 +195,8 @@ Tasks T10..T11.
 **Requirement**: AUTH-07
 
 **Done when**:
-- [ ] `server.ts` registra `auth` e `routes`.
-- [ ] `check-types` passa.
+- [x] `server.ts` registra `auth` e `routes`.
+- [x] `check-types` passa (e o servidor sobe sem erro).
 
 **Tests**: none
 **Gate**: build
