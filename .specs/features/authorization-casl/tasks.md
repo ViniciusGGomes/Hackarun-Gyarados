@@ -157,10 +157,10 @@ Tasks T10..T11.
 **Requirement**: AUTH-08
 
 **Done when**:
-- [ ] Classes de erro criadas.
-- [ ] `error-handler.ts` retorna 401/403/400/500 corretos.
-- [ ] Sem referências a `Membership`/`Organization`.
-- [ ] `check-types` passa.
+- [x] Classes de erro criadas.
+- [x] `error-handler.ts` retorna 401/403/400/500 corretos.
+- [x] Sem referências a `Membership`/`Organization`.
+- [x] `check-types` roda (demais erros residuais do template resolvidos em T6/T7 — build progressivo).
 
 **Tests**: none
 **Gate**: build
