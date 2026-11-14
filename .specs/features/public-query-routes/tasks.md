@@ -189,9 +189,9 @@ Task T9.
 **Requirement**: PUB-01, PUB-02, PUB-03
 
 **Done when**:
-- [ ] Rotas registradas sem `authorize` (públicas).
-- [ ] Controller monta a resposta conforme os schemas.
-- [ ] `check-types` passa.
+- [x] Rotas registradas sem `authorize` (públicas).
+- [x] Controller monta a resposta conforme os schemas.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
