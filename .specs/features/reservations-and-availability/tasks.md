@@ -589,6 +589,33 @@ Proof: run test | ✓ cancel of a request that is not a reservation returns 409
 **C47** - The cancellation view has only public fields and needs no token (RSV-10, Cancel AC 8)
 Proof: run test | ✓ cancel view exposes only public fields without a token
 
+**C48** - The availability answers even when recording the unmet demand fails (RSV-03, Demand AC 3)
+Proof: run test | ✓ availability still answers when recording the unmet demand fails
+
+**C49** - A protocol that collides with an existing one is replaced by another (RSV-04, Create AC 5)
+Proof: run test | ✓ reservation retries the protocol after a collision
+
+**C50** - The booking lock is per equipment type and the availability takes no lock (RSV-07, Conc AC 3/4)
+Proof: run test | ✓ booking lock is per type and availability takes no lock
+
+**C51** - Reducing the equipment keeps stored reservations and limits new ones (RSV-06, Edge)
+Proof: run test | ✓ equipment reduction keeps stored reservations and limits new ones
+
+**C52** - The advance window setting applies to bookings and to the availability (RSV-02, RSV-05)
+Proof: run test | ✓ advance window setting applies to bookings and availability
+
+**C53** - A failed booking logs no name, phone or e-mail (RSV-10, Security)
+Proof: run test | ✓ reservation failure log holds no personal data
+
+**C54** - Values at the documented limits (name 120, notes 200, phone 10 and 11 digits, reason 200) are accepted (RSV-05, RSV-08)
+Proof: run test | ✓ reservation accepts values at the documented limits
+
+**C55** - Mode `now` needs a free unit in the current block (RSV-04, Create AC 4)
+Proof: run test | ✓ reservation now mode needs a free unit in the current block
+
+**C56** - `nowAvailable` follows the opening hours, the last block and the local day (RSV-02, Avail AC 8)
+Proof: run test | ✓ availability nowAvailable follows the opening hours and the local day
+
 ---
 
 ## Handoff

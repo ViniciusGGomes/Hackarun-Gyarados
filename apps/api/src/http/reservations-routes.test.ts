@@ -10,6 +10,12 @@ import { generateProtocol } from '../utils/protocol'
 import { errorHandler } from './error-handler'
 import { routes } from './routes'
 
+vi.mock('../utils/protocol', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/protocol')>()
+
+  return { generateProtocol: vi.fn(actual.generateProtocol) }
+})
+
 vi.mock('../lib/prisma', async () => {
   const { testPrisma } = await import('../test/test-db.js')
 
@@ -170,13 +176,23 @@ describe('GET /api/v1/equipment/:type/availability', () => {
 
   it('availability counts reserved and picked_up but not cancelled returned or no_show', async () => {
     const app = await buildApp()
-    for (const status of ['reserved', 'picked_up', 'cancelled', 'returned', 'no_show'] as const) {
+    await limitUnits('wheelchair', 1)
+    const expected: [Status, number][] = [
+      ['reserved', 0],
+      ['picked_up', 0],
+      ['cancelled', 1],
+      ['returned', 1],
+      ['no_show', 1],
+    ]
+
+    for (const [status, free] of expected) {
+      await testPrisma.request.deleteMany()
       await seedReservation({ time: '10:00', status })
+
+      const { slots } = (await availability(app, 'wheelchair', TUESDAY)).json()
+
+      expect(slots[0].availableUnits, status).toBe(free)
     }
-
-    const { slots } = (await availability(app, 'wheelchair', TUESDAY)).json()
-
-    expect(slots[0].availableUnits).toBe(4) // 6 units minus the reserved and the picked_up
   })
 
   it('availability nowAvailable is set only for today', async () => {
@@ -195,6 +211,24 @@ describe('GET /api/v1/equipment/:type/availability', () => {
     expect((await availability(app, 'wheelchair', '2026-11-16')).json().nowAvailable).toBe(false)
   })
 
+  it('availability nowAvailable follows the opening hours and the local day', async () => {
+    const app = await buildApp()
+    const nowAvailableAt = async (instant: string, date: string) => {
+      vi.setSystemTime(new Date(instant))
+
+      return (await availability(app, 'wheelchair', date)).json()
+    }
+
+    expect((await nowAvailableAt('2026-11-16T12:00:00Z', '2026-11-16')).nowAvailable).toBe(false) // 09:00, before opening
+    expect((await nowAvailableAt('2026-11-16T23:10:00Z', '2026-11-16')).nowAvailable).toBe(true) // 20:10, the last block
+    const night = await nowAvailableAt('2026-11-17T00:30:00Z', '2026-11-16') // 21:30 local, after the last block
+    expect(night.slots).toEqual([])
+    expect(night.nowAvailable).toBe(false)
+    // 02:00Z is still Monday 23:00 locally: "today" is Monday, so Tuesday is not today
+    expect((await nowAvailableAt('2026-11-17T02:00:00Z', '2026-11-17')).nowAvailable).toBeNull()
+    expect((await nowAvailableAt('2026-11-17T02:00:00Z', '2026-11-16')).nowAvailable).toBe(false)
+  })
+
   it('availability records unmet demand when no block is free', async () => {
     const app = await buildApp()
     await testPrisma.equipment.updateMany({ where: { type: 'stroller' }, data: { active: false } })
@@ -205,12 +239,43 @@ describe('GET /api/v1/equipment/:type/availability', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ equipmentType: 'stroller' })
     expect(rows[0].requestedFor.toISOString().slice(0, 10)).toBe(TUESDAY)
+
+    await availability(app, 'stroller', TUESDAY) // every empty consultation counts, without deduplication
+    expect(await testPrisma.unmetDemand.count()).toBe(2)
+  })
+
+  it('availability still answers when recording the unmet demand fails', async () => {
+    const app = await buildApp()
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await testPrisma.equipment.updateMany({ where: { type: 'stroller' }, data: { active: false } })
+    await testPrisma.$executeRawUnsafe(
+      "CREATE OR REPLACE FUNCTION fail_unmet() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$ LANGUAGE plpgsql",
+    )
+    await testPrisma.$executeRawUnsafe(
+      'CREATE TRIGGER fail_unmet_trigger BEFORE INSERT ON unmet_demands FOR EACH ROW EXECUTE FUNCTION fail_unmet()',
+    )
+
+    try {
+      const response = await availability(app, 'stroller', TUESDAY)
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().slots).toHaveLength(21)
+      expect(logged).toHaveBeenCalled()
+      expect(await testPrisma.unmetDemand.count()).toBe(0)
+    } finally {
+      await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_unmet_trigger ON unmet_demands')
+      await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_unmet()')
+    }
   })
 
   it('availability does not record unmet demand outside its conditions', async () => {
     const app = await buildApp()
 
     await availability(app, 'wheelchair', TUESDAY) // a block is free
+    expect(await testPrisma.unmetDemand.count()).toBe(0)
+
+    for (let i = 0; i < 6; i++) await seedReservation({ time: '10:00' })
+    await availability(app, 'wheelchair', TUESDAY) // a partly free day: the later blocks are still free
     expect(await testPrisma.unmetDemand.count()).toBe(0)
 
     await testPrisma.equipment.updateMany({ where: { type: 'stroller' }, data: { active: false } })
@@ -334,6 +399,43 @@ describe('POST /api/v1/reservations', () => {
     expect(stored.history[0]).toMatchObject({ fromStatus: null, toStatus: 'reserved', actorType: 'visitor' })
   })
 
+  it('reservation retries the protocol after a collision', async () => {
+    const app = await buildApp()
+    await testPrisma.request.create({
+      data: { protocol: 'CAP-DUPL-2222', type: 'sac_message', status: 'open', visitorName: 'Outro', visitorPhone: '63911112222' },
+    })
+    vi.mocked(generateProtocol).mockReturnValueOnce('CAP-DUPL-2222') // the first value taken by the booking collides
+
+    const response = await reserve(app)
+
+    expect(response.statusCode).toBe(201)
+    expect(response.json().protocol).not.toBe('CAP-DUPL-2222')
+    expect(response.json().protocol).toMatch(/^CAP-[A-Z2-9]{4}-[A-Z2-9]{4}$/)
+    expect(await testPrisma.reservation.count()).toBe(1)
+  })
+
+  it('reservation accepts values at the documented limits', async () => {
+    const edges: Record<string, unknown>[] = [
+      { name: 'n'.repeat(120), phone: '6391111000' }, // 120 characters, 10-digit phone
+      { notes: 'x'.repeat(200), phone: '63911110001' }, // 200 characters, 11-digit phone
+    ]
+
+    for (const overrides of edges) {
+      const response = await reserve(await buildApp(), overrides)
+
+      expect(response.statusCode, JSON.stringify(Object.keys(overrides))).toBe(201)
+    }
+    const app = await buildApp()
+    const protocol = (await reserve(app, { phone: '63911110002' })).json().protocol
+    const cancelled = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tracking/${protocol}/cancel`,
+      payload: { phone: '63911110002', reason: 'r'.repeat(200) },
+    })
+
+    expect(cancelled.statusCode).toBe(200)
+  })
+
   it('reservation computes endAt and pickupDeadline from the settings', async () => {
     const app = await buildApp()
     await testPrisma.reservationSettings.update({
@@ -365,6 +467,18 @@ describe('POST /api/v1/reservations', () => {
 
     expect(early.statusCode).toBe(400)
     expect(early.json()).toMatchObject({ code: 'OUTSIDE_OPENING_HOURS' })
+  })
+
+  it('reservation now mode needs a free unit in the current block', async () => {
+    const app = await buildApp()
+    vi.setSystemTime(new Date('2026-11-17T14:10:00Z')) // Tuesday 11:10 local
+    for (let i = 0; i < 6; i++) await seedReservation({ time: '11:00' })
+
+    const response = await reserve(app, { mode: 'now', startAt: undefined })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json()).toMatchObject({ code: 'SLOT_UNAVAILABLE' })
+    expect((await counts()).requests).toBe(6)
   })
 
   it('reservation invalid data returns 400 and stores nothing', async () => {
@@ -515,6 +629,59 @@ describe('POST /api/v1/reservations', () => {
       await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_consent_trigger ON consents')
       await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_consent()')
     }
+
+    // The rolled-back booking released its lock: the next one for the same type goes through.
+    expect((await reserve(app)).statusCode).toBe(201)
+  })
+
+  it('reservation failure log holds no personal data', async () => {
+    const app = await buildApp()
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await testPrisma.$executeRawUnsafe(
+      "CREATE OR REPLACE FUNCTION fail_consent() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$ LANGUAGE plpgsql",
+    )
+    await testPrisma.$executeRawUnsafe(
+      'CREATE TRIGGER fail_consent_trigger BEFORE INSERT ON consents FOR EACH ROW EXECUTE FUNCTION fail_consent()',
+    )
+
+    try {
+      await reserve(app, { name: 'Nome Muito Secreto', phone: '63988880000', email: 'segredo@email.com' })
+    } finally {
+      await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_consent_trigger ON consents')
+      await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_consent()')
+    }
+
+    const output = logged.mock.calls.flat().map((entry) => String((entry as Error)?.message ?? entry)).join(' ')
+    expect(logged).toHaveBeenCalled()
+    for (const secret of ['Nome Muito Secreto', '63988880000', 'segredo@email.com']) {
+      expect(output).not.toContain(secret)
+    }
+  })
+
+  it('equipment reduction keeps stored reservations and limits new ones', async () => {
+    const app = await buildApp()
+    expect((await reserve(app)).statusCode).toBe(201)
+
+    await limitUnits('wheelchair', 1) // the pool shrinks from 6 to 1 unit
+
+    expect(await testPrisma.reservation.count()).toBe(1) // the booking made before is kept
+    expect((await availability(app, 'wheelchair', TUESDAY)).json().slots[0].availableUnits).toBe(0)
+    const response = await reserve(app, { phone: '63977776666' })
+    expect(response.statusCode).toBe(409)
+    expect(response.json()).toMatchObject({ code: 'SLOT_UNAVAILABLE' })
+  })
+
+  it('advance window setting applies to bookings and availability', async () => {
+    const app = await buildApp()
+    await testPrisma.reservationSettings.update({ where: { id: 1 }, data: { maxAdvanceDays: 2 } })
+
+    expect((await reserve(app)).statusCode).toBe(201) // Tuesday is today + 1
+    const far = await reserve(app, { startAt: at('2026-11-20', '10:00').toISOString(), phone: '63977776666' }) // today + 4
+
+    expect(far.statusCode).toBe(400)
+    expect(far.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+    expect((await availability(app, 'wheelchair', '2026-11-20')).json().slots).toEqual([])
+    expect((await availability(app, 'wheelchair', '2026-11-18')).json().slots).not.toHaveLength(0) // today + 2
   })
 
   it('reservation with an unknown location or fields of the other type returns 400', async () => {
@@ -613,6 +780,44 @@ describe('limits and concurrency', () => {
     expect(await testPrisma.reservation.count({ where: { equipmentType: 'stroller' } })).toBe(2)
   })
 
+  it('booking lock is per type and availability takes no lock', async () => {
+    const app = await buildApp()
+    let release!: () => void
+    let acquired!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const lockTaken = new Promise<void>((resolve) => (acquired = resolve))
+
+    // Another booking of wheelchairs is "in progress": it holds the wheelchair lock.
+    const holder = testPrisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'equipment:wheelchair'}))`
+        acquired()
+        await held
+      },
+      { timeout: 20_000 },
+    )
+    await lockTaken
+
+    let wheelchairDone = false
+    const wheelchair = reserve(app, { phone: '63911110001' }).then((response) => {
+      wheelchairDone = true
+
+      return response
+    })
+    const stroller = await reserve(app, { equipmentType: 'stroller', phone: '63911110002' })
+    const consultation = await availability(app, 'wheelchair', TUESDAY)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    expect(stroller.statusCode).toBe(201) // another type is not delayed
+    expect(consultation.statusCode).toBe(200) // availability takes no lock
+    expect(wheelchairDone).toBe(false) // the same type waits for the lock
+
+    release()
+    await holder
+
+    expect((await wheelchair).statusCode).toBe(201)
+  })
+
   it('reservation endpoint is rate limited and availability is not', async () => {
     const app = await buildApp()
 
@@ -701,8 +906,8 @@ describe('POST /api/v1/tracking/:protocol/cancel', () => {
   it('cancel unknown protocol wrong phone or anonymized returns the same 404', async () => {
     const app = await buildApp()
     const protocol = await reserveAndGetProtocol(app)
-    const anonymized = await reserveAndGetProtocol(app, { phone: '63977776666' })
-    await testPrisma.request.update({ where: { protocol: anonymized }, data: { anonymizedAt: NOW, visitorPhone: null } })
+    const anonymized = await reserveAndGetProtocol(app, { phone: '63977776666' }) // keeps its phone: only anonymizedAt differs
+    await testPrisma.request.update({ where: { protocol: anonymized }, data: { anonymizedAt: NOW } })
 
     const responses = [
       await cancel(app, 'CAP-ZZZZ-9999'),
@@ -756,9 +961,9 @@ describe('POST /api/v1/tracking/:protocol/cancel', () => {
   it('cancel and pickup at the same time apply one transition', async () => {
     const app = await buildApp()
 
-    for (let round = 0; round < 4; round++) {
+    for (let round = 0; round < 8; round++) {
       const phone = `6395555000${round}`
-      const protocol = await reserveAndGetProtocol(app, { phone, startAt: at(TUESDAY, `1${round}:00`).toISOString() })
+      const protocol = await reserveAndGetProtocol(app, { phone, startAt: at(TUESDAY, `${10 + round}:00`).toISOString() })
       const request = await testPrisma.request.findUniqueOrThrow({ where: { protocol } })
 
       // The pickup is what the admin route will do: a conditional update on `reserved`.
