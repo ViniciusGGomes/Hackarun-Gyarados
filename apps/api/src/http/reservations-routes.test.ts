@@ -126,10 +126,10 @@ describe('GET /api/v1/equipment/:type/availability', () => {
     // A block is free only if a unit stays free for the whole 2 h loan that would start in it:
     // 10:00 ends at 12:00 and fits; 10:30 ... 13:30 would run into the 12:00-14:00 reservations.
     expect(slots[0]).toMatchObject({ start: '2026-11-17T13:00:00.000Z', availableUnits: 6, available: true }) // 10:00
-    for (const slot of slots.slice(1, 9)) {
+    for (const slot of slots.slice(1, 8)) {
       expect(slot).toMatchObject({ availableUnits: 0, available: false })
     }
-    expect(slots[9]).toMatchObject({ start: '2026-11-17T17:00:00.000Z', availableUnits: 6, available: true }) // 14:00
+    expect(slots[8]).toMatchObject({ start: '2026-11-17T17:00:00.000Z', availableUnits: 6, available: true }) // 14:00
   })
 
   it('availability invalid type or date returns 400 VALIDATION_ERROR', async () => {
