@@ -2,7 +2,7 @@ import type { Service } from '@/types/service'
 
 // Aceita NEXT_PUBLIC_API_URL com ou sem o sufixo /api/v1.
 const RAW_API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333').replace(/\/+$/, '')
-const API_URL = RAW_API_URL.endsWith('/api/v1') ? RAW_API_URL : `${RAW_API_URL}/api/v1`
+export const API_URL = RAW_API_URL.endsWith('/api/v1') ? RAW_API_URL : `${RAW_API_URL}/api/v1`
 
 /**
  * Lista os serviços ativos (RF01). Retorna `null` quando a API não responde,

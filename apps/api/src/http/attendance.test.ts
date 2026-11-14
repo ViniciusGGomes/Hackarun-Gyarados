@@ -12,6 +12,15 @@ vi.mock('../lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    session: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        userId: where.id.replace('session-', ''),
+        lastActivityAt: new Date(),
+        revokedAt: null,
+      })),
+      update: vi.fn(async () => ({})),
+    },
   },
 }))
 
@@ -40,7 +49,7 @@ describe('attendance routes', () => {
   it('attendant can access attendance routes', async () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: ATTENDANT_ID, role: 'attendant', active: true } as never)
-    const token = app.jwt.sign({ sub: ATTENDANT_ID })
+    const token = app.jwt.sign({ sub: ATTENDANT_ID, sid: `session-${ATTENDANT_ID}` })
 
     const response = await app.inject({
       method: 'GET',
@@ -54,7 +63,7 @@ describe('attendance routes', () => {
   it('manager can access attendance routes', async () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: MANAGER_ID, role: 'manager', active: true } as never)
-    const token = app.jwt.sign({ sub: MANAGER_ID })
+    const token = app.jwt.sign({ sub: MANAGER_ID, sid: `session-${MANAGER_ID}` })
 
     const response = await app.inject({
       method: 'GET',

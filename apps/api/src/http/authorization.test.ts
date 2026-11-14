@@ -12,6 +12,15 @@ vi.mock('../lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    session: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        userId: where.id.replace('session-', ''),
+        lastActivityAt: new Date(),
+        revokedAt: null,
+      })),
+      update: vi.fn(async () => ({})),
+    },
     request: {
       findUnique: vi.fn(),
     },
@@ -45,7 +54,7 @@ describe('manager-only routes', () => {
   it('attendant returns 403 on manager route', async () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: ATTENDANT_ID, role: 'attendant', active: true } as never)
-    const token = app.jwt.sign({ sub: ATTENDANT_ID })
+    const token = app.jwt.sign({ sub: ATTENDANT_ID, sid: `session-${ATTENDANT_ID}` })
 
     const response = await app.inject({
       method: 'GET',
@@ -59,7 +68,7 @@ describe('manager-only routes', () => {
   it('manager accesses manager route', async () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: MANAGER_ID, role: 'manager', active: true } as never)
-    const token = app.jwt.sign({ sub: MANAGER_ID })
+    const token = app.jwt.sign({ sub: MANAGER_ID, sid: `session-${MANAGER_ID}` })
 
     const response = await app.inject({
       method: 'GET',
@@ -73,7 +82,7 @@ describe('manager-only routes', () => {
   it('role is derived from the database', async () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: ATTENDANT_ID, role: 'attendant', active: true } as never)
-    const token = app.jwt.sign({ sub: ATTENDANT_ID, role: 'manager' }) // forged role claim
+    const token = app.jwt.sign({ sub: ATTENDANT_ID, role: 'manager', sid: `session-${ATTENDANT_ID}` }) // forged role claim
 
     const response = await app.inject({
       method: 'GET',
@@ -88,7 +97,7 @@ describe('manager-only routes', () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: ATTENDANT_ID, role: 'attendant', active: true } as never)
     requestFindUniqueMock.mockResolvedValue({ status: 'returned' } as never)
-    const token = app.jwt.sign({ sub: ATTENDANT_ID })
+    const token = app.jwt.sign({ sub: ATTENDANT_ID, sid: `session-${ATTENDANT_ID}` })
 
     const response = await app.inject({
       method: 'PATCH',
@@ -103,7 +112,7 @@ describe('manager-only routes', () => {
     const app = await buildApp()
     findUniqueMock.mockResolvedValue({ id: MANAGER_ID, role: 'manager', active: true } as never)
     requestFindUniqueMock.mockResolvedValue({ status: 'returned' } as never)
-    const token = app.jwt.sign({ sub: MANAGER_ID })
+    const token = app.jwt.sign({ sub: MANAGER_ID, sid: `session-${MANAGER_ID}` })
 
     const response = await app.inject({
       method: 'PATCH',
