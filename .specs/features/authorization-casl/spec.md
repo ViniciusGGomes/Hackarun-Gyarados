@@ -144,9 +144,9 @@ on the route for an attendant.
 | AUTH-04 | P1: Modelo compartilhado | Design | Implementing |
 | AUTH-05 | P1: Modelo compartilhado | Design | Implementing |
 | AUTH-06 | P2: Reabertura | Design | Implementing |
-| AUTH-07 | P1: Backend | Design | Pending |
-| AUTH-08 | P1: Backend | Design | Pending |
-| AUTH-09 | P1: Backend | Design | Pending |
+| AUTH-07 | P1: Backend | Design | Implementing |
+| AUTH-08 | P1: Backend | Design | Implementing |
+| AUTH-09 | P1: Backend | Design | Implementing |
 | AUTH-10 | P1: Frontend | Design | Pending |
 
 **Coverage:** 10 total, 10 mapped to tasks, 0 unmapped.

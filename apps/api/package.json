@@ -5,7 +5,9 @@
     "dev": "pnpm env:load tsx watch src/http/server.ts",
     "db:migrate": "pnpm env:load prisma migrate dev",
     "db:studio": "pnpm env:load prisma studio",
-    "env:load": "dotenv -e ../../.env --"
+    "env:load": "dotenv -e ../../.env --",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
@@ -29,7 +31,8 @@
     "bcryptjs": "^3.0.3",
     "dotenv-cli": "^11.0.0",
     "prisma": "5.12.1",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "vitest": "^5.1.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,11 +1,11 @@
-import { Membership, Organization } from '@prisma/client'
+import type { User } from '@prisma/client'
+import type { AppAbility } from '@saas/auth'
 import 'fastify'
 
 declare module 'fastify' {
   export interface FastifyRequest {
     getCurrentUserId(): Promise<string>
-    getUserMembership(
-      slug: string
-    ): Promise<{ organization: Organization; membership: Membership }>
+    getCurrentUser(): Promise<User>
+    getAbility(): Promise<AppAbility>
   }
 }

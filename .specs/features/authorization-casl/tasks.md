@@ -176,10 +176,10 @@ Tasks T10..T11.
 **Requirement**: AUTH-07, AUTH-09
 
 **Done when**:
-- [ ] `request.getCurrentUserId()` e `request.ability` disponíveis.
-- [ ] Usuário inativo é negado.
-- [ ] Papel vem do banco (nunca do cliente).
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (3 testes de integração passam).
+- [x] `request.getCurrentUserId()`, `request.getCurrentUser()` e `request.getAbility()` disponíveis.
+- [x] Usuário inativo é negado.
+- [x] Papel vem do banco (nunca do cliente).
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (3 testes de integração passam).
 
 **Tests**: integration
 **Gate**: full
