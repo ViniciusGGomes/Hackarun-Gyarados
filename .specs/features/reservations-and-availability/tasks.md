@@ -147,10 +147,10 @@ Tasks T18..T21.
 **Requirement**: RSV-09
 
 **Done when**:
-- [ ] A 11ª requisição na janela do mesmo IP responde `429 TOO_MANY_REQUESTS`; a janela seguinte volta a aceitar.
-- [ ] Contador por instância do limitador (cada app de teste começa zerado).
-- [ ] Teste de integração `apps/api/src/http/rate-limit.test.ts` com relógio controlado.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] A 11ª requisição na janela do mesmo IP responde `429 TOO_MANY_REQUESTS`; a janela seguinte volta a aceitar.
+- [x] Contador por instância do limitador (cada app de teste começa zerado).
+- [x] Teste de integração `apps/api/src/http/rate-limit.test.ts` com relógio controlado.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
