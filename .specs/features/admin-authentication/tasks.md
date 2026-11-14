@@ -197,9 +197,9 @@ Tasks T11..T15.
 **Requirement**: AUTHN-10, AUTHN-32
 
 **Done when**:
-- [ ] `user.findUnique` (por `id` e por `email`), `user.update` (aplica `increment` de forma atômica, devolve a linha atualizada), `session.create`, `session.findUnique`, `session.update`.
-- [ ] Expõe o estado (usuários e sessões) para asserções.
-- [ ] `check-types` passa.
+- [x] `user.findUnique` (por `id` e por `email`), `user.update` (aplica `increment` de forma atômica, devolve a linha atualizada), `session.create`, `session.findUnique`, `session.update`.
+- [x] Expõe o estado (usuários e sessões) para asserções.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
