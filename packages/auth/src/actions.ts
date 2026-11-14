@@ -1,0 +1,11 @@
+export type Action =
+  | 'read'
+  | 'create'
+  | 'update'
+  | 'updateStatus'
+  | 'sendMessage'
+  | 'pickup'
+  | 'return'
+  | 'match'
+  | 'deliver'
+  | 'close'

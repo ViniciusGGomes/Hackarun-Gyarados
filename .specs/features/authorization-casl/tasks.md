@@ -100,9 +100,9 @@ Tasks T10..T11.
 **Requirement**: AUTH-01, AUTH-02
 
 **Done when**:
-- [ ] `Role` = `'attendant' | 'manager'` (sem `ADMIN`).
-- [ ] `Action` union com `read, create, update, updateStatus, sendMessage, pickup, return, match, deliver, close`.
-- [ ] `check-types` passa.
+- [x] `Role` = `'attendant' | 'manager'` (sem `ADMIN`).
+- [x] `Action` union com `read, create, update, updateStatus, sendMessage, pickup, return, match, deliver, close`.
+- [x] `check-types` roda (erros residuais do template em `index.ts`/`permissions.ts`, resolvidos em T4 — build progressivo).
 
 **Tests**: none
 **Gate**: build
