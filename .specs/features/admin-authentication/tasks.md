@@ -256,8 +256,8 @@ Tasks T11..T15.
 **Requirement**: AUTHN-30
 
 **Done when**:
-- [ ] `getCurrentSessionId(): Promise<string>` declarado.
-- [ ] `check-types` passa.
+- [x] `getCurrentSessionId(): Promise<string>` declarado.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
