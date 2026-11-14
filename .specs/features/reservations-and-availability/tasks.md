@@ -366,8 +366,8 @@ Tasks T18..T21.
 **Requirement**: RSV-08, RSV-09, RSV-10
 
 **Done when**:
-- [ ] Público, com `rateLimit({ max: 10, windowMs: 60000 })`; corpo e parâmetros validados por Zod.
-- [ ] `check-types` passa.
+- [x] Público, com `rateLimit({ max: 10, windowMs: 60000 })`; corpo e parâmetros validados por Zod.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
