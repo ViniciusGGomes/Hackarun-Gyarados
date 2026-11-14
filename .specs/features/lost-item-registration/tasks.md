@@ -164,9 +164,9 @@ Tasks T7..T10.
 **Requirement**: LIR-01
 
 **Done when**:
-- [ ] `createLostReportController` lê o corpo já validado, chama o service e responde `201` com o resultado.
-- [ ] Sem acesso ao Prisma nem regra de negócio no controller.
-- [ ] `check-types` passa.
+- [x] `createLostReportController` lê o corpo já validado, chama o service e responde `201` com o resultado.
+- [x] Sem acesso ao Prisma nem regra de negócio no controller.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
