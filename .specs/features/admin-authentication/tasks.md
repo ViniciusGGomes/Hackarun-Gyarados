@@ -215,13 +215,13 @@ Tasks T11..T15.
 **Requirement**: AUTHN-01, AUTHN-02, AUTHN-03, AUTHN-04, AUTHN-10
 
 **Done when**:
-- [ ] Teste unitário `apps/api/src/modules/auth/auth.service.test.ts` cobre cada AC de login e bloqueio (cenários T1-T12 do spec) com relógio injetado, nomes distintos dos testes de integração.
-- [ ] Usuário inexistente executa `bcrypt.compare` contra `DUMMY_PASSWORD_HASH`.
-- [ ] Senha errada incrementa de forma atômica; a 5ª falha define `lockedUntil = now + 15 min`.
-- [ ] `lockedUntil > now` lança `AccountLockedError` sem comparar senha nem alterar contadores; após o fim do bloqueio zera e avalia como a 1ª falha.
-- [ ] Usuário inativo lança `InvalidCredentialsError` sem tocar nos contadores.
-- [ ] Sucesso zera contadores, limpa `lockedUntil`, grava `lastLoginAt`, cria a `Session` e devolve usuário público + `sessionId`.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Teste unitário `apps/api/src/modules/auth/auth.service.test.ts` cobre cada AC de login e bloqueio (cenários T1-T12 do spec) com relógio injetado, nomes distintos dos testes de integração.
+- [x] Usuário inexistente executa `bcrypt.compare` contra `DUMMY_PASSWORD_HASH`.
+- [x] Senha errada incrementa de forma atômica; a 5ª falha define `lockedUntil = now + 15 min`.
+- [x] `lockedUntil > now` lança `AccountLockedError` sem comparar senha nem alterar contadores; após o fim do bloqueio zera e avalia como a 1ª falha.
+- [x] Usuário inativo lança `InvalidCredentialsError` sem tocar nos contadores.
+- [x] Sucesso zera contadores, limpa `lockedUntil`, grava `lastLoginAt`, cria a `Session` e devolve usuário público + `sessionId`.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick
