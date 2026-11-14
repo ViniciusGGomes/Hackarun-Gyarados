@@ -92,9 +92,9 @@ Tasks T8..T12.
 **Requirement**: EQP-01, EQP-02, EQP-03
 
 **Done when**:
-- [ ] `isPickupOverdue`, `isReturnOverdue`, `pickupWindowOpen` e `assembleSlots` conforme o design.
-- [ ] Teste unitário `equipment-operations.logic.test.ts`: limites exatos dos atrasos (igual ao prazo não é atraso), todos os status, janela com extremos incluídos, ordem dos blocos, reserva fora dos blocos em bloco próprio, `freeUnits` só com `reserved`/`picked_up`; o teste do check C8 tem o nome indicado nos Checks.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `isPickupOverdue`, `isReturnOverdue`, `pickupWindowOpen` e `assembleSlots` conforme o design.
+- [x] Teste unitário `equipment-operations.logic.test.ts`: limites exatos dos atrasos (igual ao prazo não é atraso), todos os status, janela com extremos incluídos, ordem dos blocos, reserva fora dos blocos em bloco próprio, `freeUnits` só com `reserved`/`picked_up`; o teste do check C8 tem o nome indicado nos Checks.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick
