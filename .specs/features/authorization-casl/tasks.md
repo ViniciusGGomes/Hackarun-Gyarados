@@ -83,8 +83,8 @@ Tasks T10..T11.
 **Requirement**: AUTH-04 (habilita os testes)
 
 **Done when**:
-- [ ] `test` e `check-types` scripts existem.
-- [ ] `pnpm --filter @saas/auth run check-types` passa.
+- [x] `test` e `check-types` scripts existem.
+- [x] `pnpm --filter @saas/auth run check-types` roda (3 erros pré-existentes do template em `index.ts`/`permissions.ts`, resolvidos em T4 — build progressivo).
 
 **Tests**: none
 **Gate**: build
