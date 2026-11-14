@@ -1,0 +1,1057 @@
+{
+  "info": {
+    "_postman_id": "6c87e1f2-547a-4673-82ca-206f10f7021d",
+    "name": "Capim Dourado Serviços - API",
+    "description": "Rotas implementadas do backend (monorepo hackarun). Rode primeiro \"Aviso de privacidade\" e \"Listar locais\", depois os formulários públicos; para as rotas de admin faça o login antes. Rotas administrativas ainda sem implementação (solicitações, achados, configurações, usuários, indicadores) não estão aqui.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3333/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": "Senha@123"
+    },
+    {
+      "key": "equipmentType",
+      "value": "wheelchair"
+    },
+    {
+      "key": "phone",
+      "value": "63911110001"
+    },
+    {
+      "key": "protocol",
+      "value": "CAP-7K3Q-9XM2"
+    },
+    {
+      "key": "lostProtocol",
+      "value": ""
+    },
+    {
+      "key": "privacyVersion",
+      "value": "1.0"
+    },
+    {
+      "key": "locationId",
+      "value": ""
+    },
+    {
+      "key": "reservationId",
+      "value": ""
+    },
+    {
+      "key": "startAt",
+      "value": ""
+    },
+    {
+      "key": "date",
+      "value": ""
+    },
+    {
+      "key": "today",
+      "value": ""
+    },
+    {
+      "key": "todayLocal",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Público (sem login)",
+      "description": "",
+      "item": [
+        {
+          "name": "Aviso de privacidade vigente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/privacy-notice",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "privacy-notice"
+              ]
+            },
+            "description": "Guarda a versão ativa em {{privacyVersion}}, usada no consentimento dos formulários.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const v = pm.response.json().version;",
+                  "if (v) pm.collectionVariables.set('privacyVersion', v);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar serviços",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe de um serviço",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/services/cadeiras-de-rodas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "cadeiras-de-rodas"
+              ]
+            },
+            "description": "Slugs do seed: cadeiras-de-rodas, carrinhos-de-bebe, achados-e-perdidos, sac, espaco-familia, correios...",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar locais ativos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/locations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "locations"
+              ]
+            },
+            "description": "Guarda o primeiro local em {{locationId}}.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "const first = Array.isArray(list) ? list[0] : (list.data || [])[0];",
+                  "if (first) pm.collectionVariables.set('locationId', first.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reservas e acompanhamento (sem login)",
+      "description": "",
+      "item": [
+        {
+          "name": "Disponibilidade de um equipamento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/equipment/{{equipmentType}}/availability?date={{date}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "equipment",
+                "{{equipmentType}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{date}}"
+                }
+              ]
+            },
+            "description": "equipmentType: wheelchair ou stroller. A data vem do script (amanhã).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();",
+                  "d.setUTCDate(d.getUTCDate() + 1);",
+                  "const sunday = d.getUTCDay() === 0;",
+                  "d.setUTCHours(sunday ? 17 : 13, 0, 0, 0);",
+                  "pm.collectionVariables.set('startAt', d.toISOString());",
+                  "pm.collectionVariables.set('date', d.toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar reserva agendada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "Rode antes \"Aviso de privacidade\" e \"Listar locais\". Um telefone só pode ter 1 reserva ativa por tipo: mude {{phone}} para repetir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipmentType\": \"wheelchair\",\n  \"mode\": \"scheduled\",\n  \"startAt\": \"{{startAt}}\",\n  \"name\": \"Maria Teste\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"maria.teste@exemplo.com\",\n  \"currentLocationId\": \"{{locationId}}\",\n  \"forWhom\": \"self\",\n  \"size\": \"adult\",\n  \"notes\": \"Estou na entrada principal\",\n  \"consent\": {\n    \"accepted\": true,\n    \"privacyNoticeVersion\": \"{{privacyVersion}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();",
+                  "d.setUTCDate(d.getUTCDate() + 1);",
+                  "const sunday = d.getUTCDay() === 0;",
+                  "d.setUTCHours(sunday ? 17 : 13, 0, 0, 0);",
+                  "pm.collectionVariables.set('startAt', d.toISOString());",
+                  "pm.collectionVariables.set('date', d.toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "if (b.protocol) pm.collectionVariables.set('protocol', b.protocol);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar reserva \"Preciso agora\"",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "Usa o bloco atual; só funciona dentro do expediente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipmentType\": \"stroller\",\n  \"mode\": \"now\",\n  \"name\": \"João Teste\",\n  \"phone\": \"63999990077\",\n  \"strollerKind\": \"single\",\n  \"consent\": {\n    \"accepted\": true,\n    \"privacyNoticeVersion\": \"{{privacyVersion}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 ou 400 fora do expediente', () => pm.expect([201, 400]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar reserva (protocolo + telefone)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tracking/{{protocol}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tracking",
+                "{{protocol}}",
+                "cancel"
+              ]
+            },
+            "description": "Usa o protocolo da última reserva criada. Seed: CAP-7K3Q-9XM2 com telefone 63999990001.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"reason\": \"Mudei de ideia\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ou 404/409', () => pm.expect([200, 404, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Achados e perdidos (sem login)",
+      "description": "",
+      "item": [
+        {
+          "name": "Registrar objeto perdido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lost-reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "lost-reports"
+              ]
+            },
+            "description": "Categorias: documents, wallet_bag, phone_electronics, keys, clothing_accessories, glasses_jewelry, other. Use locationId OU unknownLocation=true (nunca os dois). Limite: 10 requisições/minuto por IP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"wallet_bag\",\n  \"description\": \"Carteira preta de couro\",\n  \"identificationDetail\": \"Foto de um cachorro dentro da carteira\",\n  \"locationId\": \"{{locationId}}\",\n  \"unknownLocation\": false,\n  \"lostDate\": \"{{today}}\",\n  \"lostPeriod\": \"afternoon\",\n  \"name\": \"João Lima\",\n  \"phone\": \"63988887777\",\n  \"email\": \"joao.lima@exemplo.com\",\n  \"consent\": {\n    \"accepted\": true,\n    \"privacyNoticeVersion\": \"{{privacyVersion}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('today', new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "if (b.protocol) pm.collectionVariables.set('lostProtocol', b.protocol);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar objeto perdido (local desconhecido)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lost-reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "lost-reports"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"keys\",\n  \"description\": \"Chaveiro com 3 chaves\",\n  \"unknownLocation\": true,\n  \"lostDate\": \"{{today}}\",\n  \"name\": \"Ana Prado\",\n  \"phone\": \"63977776666\",\n  \"consent\": {\n    \"accepted\": true,\n    \"privacyNoticeVersion\": \"{{privacyVersion}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('today', new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Erro: sem consentimento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lost-reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "lost-reports"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"keys\",\n  \"description\": \"Teste\",\n  \"unknownLocation\": true,\n  \"lostDate\": \"2026-01-01\",\n  \"name\": \"Teste\",\n  \"phone\": \"63900000000\",\n  \"consent\": {\n    \"accepted\": false,\n    \"privacyNoticeVersion\": \"1.0\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 CONSENT_REQUIRED', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('CONSENT_REQUIRED'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Autenticação",
+      "description": "Rotas protegidas usam o Bearer {{token}} da coleção. A sessão expira após 30 minutos sem uso.",
+      "item": [
+        {
+          "name": "Login (Gestor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Seed: gestor@exemplo.com (manager), paulo@exemplo.com e camila@exemplo.com (attendant). Senha padrão do seed: Senha@123. Guarda o token em {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gestor@exemplo.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('token', b.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Atendente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"paulo@exemplo.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('token', b.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (usuário inativo - deve falhar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"inativo@exemplo.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 INVALID_CREDENTIALS', () => { pm.response.to.have.status(401); pm.expect(pm.response.json().code).to.eql('INVALID_CREDENTIALS'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Usuário autenticado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoga a sessão: o token deixa de valer. Faça login de novo depois."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 ou 200', () => pm.expect([200, 204]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin - Equipamentos (exige login)",
+      "description": "Atendente e Gestor têm as mesmas permissões aqui.",
+      "item": [
+        {
+          "name": "Agenda do dia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/agenda?date={{date}}&equipmentType={{equipmentType}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{date}}"
+                },
+                {
+                  "key": "equipmentType",
+                  "value": "{{equipmentType}}"
+                }
+              ]
+            },
+            "description": "Mostra os blocos do dia com unidades livres e as reservas (qualquer status). Guarda em {{reservationId}} o id da primeira reserva \"reserved\" encontrada."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();",
+                  "d.setUTCDate(d.getUTCDate() + 1);",
+                  "const sunday = d.getUTCDay() === 0;",
+                  "d.setUTCHours(sunday ? 17 : 13, 0, 0, 0);",
+                  "pm.collectionVariables.set('startAt', d.toISOString());",
+                  "pm.collectionVariables.set('date', d.toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const slots = pm.response.json().slots || [];",
+                  "for (const s of slots) { const r = s.reservations.find(x => x.status === 'reserved'); if (r) { pm.collectionVariables.set('reservationId', r.id); break; } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agenda de hoje",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/agenda?date={{todayLocal}}&equipmentType={{equipmentType}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{todayLocal}}"
+                },
+                {
+                  "key": "equipmentType",
+                  "value": "{{equipmentType}}"
+                }
+              ]
+            },
+            "description": "Use esta para a retirada: só é possível retirar do início do bloco até o prazo de tolerância (15 min). Guarda {{reservationId}}."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('todayLocal', new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const slots = pm.response.json().slots || [];",
+                  "for (const s of slots) { const r = s.reservations.find(x => x.status === 'reserved'); if (r) { pm.collectionVariables.set('reservationId', r.id); break; } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar retirada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reservations/{{reservationId}}/pickup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reservations",
+                "{{reservationId}}",
+                "pickup"
+              ]
+            },
+            "description": "{{reservationId}} é o id da SOLICITAÇÃO (o mesmo da agenda). Só vale com status reserved, entre o início do bloco e o prazo. O corpo é opcional; o horário é sempre o do servidor.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentChecked\": true,\n  \"notes\": \"Retirada no balcão do SAC\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ou 409 (fora da janela/status)', () => pm.expect([200, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar devolução",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reservations/{{reservationId}}/return",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reservations",
+                "{{reservationId}}",
+                "return"
+              ]
+            },
+            "description": "Só vale com status picked_up (faça a retirada antes). Libera a unidade.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conditionNotes\": \"Equipamento em bom estado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ou 409 (status)', () => pm.expect([200, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sem token (deve dar 401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/agenda?date={{date}}&equipmentType=wheelchair",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{date}}"
+                },
+                {
+                  "key": "equipmentType",
+                  "value": "wheelchair"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
