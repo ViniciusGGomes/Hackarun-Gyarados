@@ -296,9 +296,9 @@ Tasks T18..T21.
 **Requirement**: RSV-08
 
 **Done when**:
-- [ ] `cancelReservation(protocol, phone, reason, now)`: protocolo inexistente, telefone diferente, anonimizada ou formato inválido → `NotFoundError` genérico; não reserva (outro tipo) ou status diferente de `reserved` → `409 REQUEST_NOT_CANCELLABLE`.
-- [ ] `TrackingView`: `publicStatus` `cancelled`, `summary` com equipamento e horário, `timeline` do histórico, `messages` vazio, `canCancel` e `canReply` falsos; sem dados de terceiros.
-- [ ] `check-types` passa.
+- [x] `cancelReservation(protocol, phone, reason, now)`: protocolo inexistente, telefone diferente, anonimizada ou formato inválido → `NotFoundError` genérico; não reserva (outro tipo) ou status diferente de `reserved` → `409 REQUEST_NOT_CANCELLABLE`.
+- [x] `TrackingView`: `publicStatus` `cancelled`, `summary` com equipamento e horário, `timeline` do histórico, `messages` vazio, `canCancel` e `canReply` falsos; sem dados de terceiros.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build

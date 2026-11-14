@@ -1,6 +1,7 @@
 import type { EquipmentType } from '@prisma/client'
 
 import { AppError } from '../../http/routes/_errors/app-error'
+import { NotFoundError } from '../../http/routes/_errors/not-found-error'
 import { reservationsRepository as repository } from './reservations.repository'
 import type { CreateReservationInput } from './reservations.schemas'
 import {
@@ -158,5 +159,28 @@ export async function createReservation(input: CreateReservationInput, now: Date
     pickupLocation: location
       ? { id: location.id, name: location.name, floor: location.floor, type: location.type, active: location.active }
       : null,
+  }
+}
+
+export async function cancelReservation(protocol: string, phone: string, reason: string | undefined, now: Date = new Date()) {
+  const result = await repository.cancelReservationTx(protocol, phone, reason, now)
+
+  // Same answer for unknown protocol, wrong phone and anonymized request: nothing reveals which one it was.
+  if (result.kind === 'not_found') throw new NotFoundError('Request not found')
+
+  if (result.kind === 'not_cancellable') {
+    throw new AppError(409, 'REQUEST_NOT_CANCELLABLE', 'This request can no longer be cancelled')
+  }
+
+  return {
+    protocol: result.protocol,
+    type: 'reservation' as const,
+    publicStatus: 'cancelled',
+    createdAt: result.createdAt,
+    summary: { equipmentType: result.equipmentType, startAt: result.startAt, endAt: result.endAt },
+    timeline: result.timeline,
+    messages: [],
+    canCancel: false,
+    canReply: false,
   }
 }
