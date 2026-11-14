@@ -363,3 +363,273 @@ describe('authentication and permission', () => {
     expect(roles).toEqual(['attendant', 'manager'])
   })
 })
+
+function stored(id: string) {
+  return testPrisma.request.findUniqueOrThrow({
+    where: { id },
+    include: { reservation: true, history: { orderBy: { createdAt: 'asc' } } },
+  })
+}
+
+describe('POST /api/v1/admin/reservations/:id/pickup', () => {
+  it('pickup inside the window returns 200 with picked_up and the server time', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+
+    const response = await pickup(app, target.id, headers)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ id: target.id, protocol: target.protocol, status: 'picked_up' })
+    expect(response.json().reservation.pickedUpAt).toBe(NOW.toISOString())
+  })
+
+  it('pickup stores the status the times the document and the notes with one history row', async () => {
+    const app = await buildApp()
+    const { headers, userId } = await staff(app)
+    const target = await seedReservation()
+
+    await pickup(app, target.id, headers, { documentChecked: true, notes: '  Cadeira do lote 2  ' })
+    const after = await stored(target.id)
+
+    expect(after.status).toBe('picked_up')
+    expect(after.completedAt).toBeNull()
+    expect(after.reservation).toMatchObject({ documentChecked: true, pickupNotes: 'Cadeira do lote 2', returnedAt: null })
+    expect(after.reservation?.pickedUpAt?.toISOString()).toBe(NOW.toISOString())
+    expect(after.history).toHaveLength(2) // the creation and the pickup
+    expect(after.history[1]).toMatchObject({ fromStatus: 'reserved', toStatus: 'picked_up', actorType: 'staff', actorUserId: userId })
+  })
+
+  it('pickup ignores time status and user sent in the body', async () => {
+    const app = await buildApp()
+    const { headers, userId } = await staff(app)
+    const target = await seedReservation()
+
+    const response = await pickup(app, target.id, headers, {
+      pickedUpAt: '2020-01-01T00:00:00.000Z',
+      status: 'returned',
+      userId: '00000000-0000-4000-8000-000000000000',
+      actorUserId: '00000000-0000-4000-8000-000000000000',
+      completedAt: '2020-01-01T00:00:00.000Z',
+    })
+    const after = await stored(target.id)
+
+    expect(response.statusCode).toBe(200)
+    expect(after.status).toBe('picked_up')
+    expect(after.completedAt).toBeNull()
+    expect(after.reservation?.pickedUpAt?.toISOString()).toBe(NOW.toISOString())
+    expect(after.history[1].actorUserId).toBe(userId)
+  })
+
+  it('pickup of a reservation in another status returns 409', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (const status of ['picked_up', 'returned', 'cancelled', 'no_show'] as const) {
+      const target = await seedReservation({ status })
+
+      const response = await pickup(app, target.id, headers)
+      const after = await stored(target.id)
+
+      expect(response.statusCode, status).toBe(409)
+      expect(response.json(), status).toMatchObject({ statusCode: 409, code: 'INVALID_STATUS_TRANSITION' })
+      expect(after.status, status).toBe(status)
+      expect(after.reservation?.pickedUpAt, status).toBeNull()
+      expect(after.history, status).toHaveLength(1) // only the creation
+    }
+  })
+
+  it('pickup before the block start and after the deadline returns 409', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const early = await seedReservation({ time: '11:00' }) // starts in 55 minutes
+    const late = await seedReservation({ time: '10:00' }) // deadline 10:15
+
+    const tooEarly = await pickup(app, early.id, headers)
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * MINUTE + 1)) // 13:15:00.001, one millisecond past the deadline
+    const lateHeaders = (await staff(app)).headers
+    const tooLate = await pickup(app, late.id, lateHeaders)
+
+    for (const response of [tooEarly, tooLate]) {
+      expect(response.statusCode).toBe(409)
+      expect(response.json()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' })
+    }
+    expect(tooEarly.json().message).not.toBe(tooLate.json().message) // the message says which limit
+    for (const id of [early.id, late.id]) {
+      const after = await stored(id)
+
+      expect(after.status).toBe('reserved')
+      expect(after.history).toHaveLength(1)
+    }
+  })
+
+  it('pickup at the exact start and at the exact deadline is accepted', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const atStart = await seedReservation({ startAt: NOW }) // starts exactly now
+    const atDeadline = await seedReservation({ time: '09:00', pickupDeadline: NOW }) // deadline exactly now
+
+    expect((await pickup(app, atStart.id, headers)).statusCode).toBe(200)
+    expect((await pickup(app, atDeadline.id, headers)).statusCode).toBe(200)
+  })
+
+  it('pickup requires the document when the setting asks for it', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    await testPrisma.reservationSettings.update({ where: { id: 1 }, data: { requireDocumentOnPickup: true } })
+    const target = await seedReservation()
+
+    for (const payload of [undefined, {}, { documentChecked: false }, { notes: 'sem documento' }]) {
+      const response = await pickup(app, target.id, headers, payload)
+
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400)
+      expect(response.json(), JSON.stringify(payload)).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect((await stored(target.id)).status).toBe('reserved')
+
+    const ok = await pickup(app, target.id, headers, { documentChecked: true })
+
+    expect(ok.statusCode).toBe(200)
+    expect((await stored(target.id)).reservation?.documentChecked).toBe(true)
+  })
+
+  it('pickup accepts the document absent or false when it is not required', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+
+    for (const documentChecked of [undefined, false, true]) {
+      const target = await seedReservation()
+
+      const response = await pickup(app, target.id, headers, documentChecked === undefined ? undefined : { documentChecked })
+
+      expect(response.statusCode, String(documentChecked)).toBe(200)
+      expect((await stored(target.id)).reservation?.documentChecked ?? undefined, String(documentChecked)).toBe(documentChecked)
+    }
+  })
+
+  it('pickup rejects invalid notes and document values', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+
+    for (const payload of [{ notes: 'n'.repeat(301) }, { documentChecked: 'yes' }, { documentChecked: 1 }, { notes: 5 }]) {
+      const response = await pickup(app, target.id, headers, payload)
+
+      expect(response.statusCode, JSON.stringify(payload).slice(0, 40)).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect((await stored(target.id)).history).toHaveLength(1) // nothing happened
+    expect((await pickup(app, target.id, headers, { notes: 'n'.repeat(300) })).statusCode).toBe(200) // the limit itself is fine
+  })
+
+  it('pickup answers 400 for a malformed id and 404 for unknown other-type or anonymized', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const lost = await testPrisma.request.create({
+      data: { protocol: 'CAP-LOST-2222', type: 'lost_report', status: 'registered', visitorName: 'Visitante' },
+    })
+    const sac = await testPrisma.request.create({
+      data: { protocol: 'CAP-SACS-3333', type: 'sac_message', status: 'open', visitorName: 'Visitante' },
+    })
+    const anonymized = await seedReservation()
+    await testPrisma.request.update({ where: { id: anonymized.id }, data: { anonymizedAt: NOW, visitorPhone: null } })
+
+    const malformed = await pickup(app, 'not-a-uuid', headers)
+    expect(malformed.statusCode).toBe(400)
+    expect(malformed.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+
+    for (const id of ['3f2a9c1e-7b4d-4e8a-9c3b-1a2b3c4d5e6f', lost.id, sac.id, anonymized.id]) {
+      const response = await pickup(app, id, headers)
+
+      expect(response.statusCode, id).toBe(404)
+      expect(response.json(), id).toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    }
+    expect((await stored(anonymized.id)).status).toBe('reserved')
+    expect((await stored(lost.id)).status).toBe('registered')
+  })
+
+  it('pickup uses the stored deadline and not the current tolerance setting', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation() // stored deadline 10:15, now 10:05
+
+    await testPrisma.reservationSettings.update({ where: { id: 1 }, data: { pickupToleranceMinutes: 1 } }) // would make it 10:01
+    expect((await pickup(app, target.id, headers)).statusCode).toBe(200)
+
+    const stale = await seedReservation({ time: '09:00' }) // stored deadline 09:15, long past
+    await testPrisma.reservationSettings.update({ where: { id: 1 }, data: { pickupToleranceMinutes: 120 } }) // would make it 11:00
+    const response = await pickup(app, stale.id, headers)
+
+    expect(response.statusCode).toBe(409)
+    expect((await stored(stale.id)).status).toBe('reserved')
+  })
+
+  it('pickup response carries visitor reservation and history', async () => {
+    const app = await buildApp()
+    const { headers, userId } = await staff(app, 'attendant')
+    const target = await seedReservation({ name: 'Maria Souza', phone: '63911112222', email: 'maria@email.com', notes: 'Na entrada' })
+
+    const body = (await pickup(app, target.id, headers)).json()
+
+    expect(body.visitor).toEqual({ name: 'Maria Souza', phone: '63911112222', email: 'maria@email.com' })
+    expect(body.reservation).toMatchObject({
+      equipmentType: 'wheelchair',
+      startAt: '2026-11-17T13:00:00.000Z',
+      endAt: '2026-11-17T15:00:00.000Z',
+      pickedUpAt: NOW.toISOString(),
+      returnedAt: null,
+      currentLocation: null,
+      notes: 'Na entrada',
+      pickupOverdue: false,
+      returnOverdue: false,
+    })
+    expect(body.history).toHaveLength(2)
+    expect(body.history[0]).toMatchObject({ fromStatus: null, toStatus: 'reserved', actor: { type: 'visitor', userId: null, name: null } })
+    expect(body.history[1]).toMatchObject({
+      fromStatus: 'reserved',
+      toStatus: 'picked_up',
+      actor: { type: 'staff', userId, name: 'Equipe Teste' },
+    })
+  })
+
+  it('detail of a reservation has null lost report sac message and no messages', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+
+    const body = (await pickup(app, target.id, headers)).json()
+
+    expect(body.type).toBe('reservation')
+    expect(body.lostReport).toBeNull()
+    expect(body.sacMessage).toBeNull()
+    expect(body.messages).toEqual([])
+  })
+
+  it('detail carries no credentials or data of other visitors', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const other = await seedReservation({ name: 'Outra Visitante', phone: '63977776666', email: 'outra@email.com', time: '11:00' })
+    const target = await seedReservation({ name: 'Maria Souza' })
+
+    const response = await pickup(app, target.id, headers)
+    const staffUser = await testPrisma.user.findFirstOrThrow()
+
+    expect(Object.keys(response.json()).sort()).toEqual([
+      'createdAt',
+      'history',
+      'id',
+      'lostReport',
+      'messages',
+      'protocol',
+      'reservation',
+      'sacMessage',
+      'status',
+      'type',
+      'updatedAt',
+      'visitor',
+    ])
+    for (const secret of ['Outra Visitante', '63977776666', 'outra@email.com', other.protocol, staffUser.passwordHash, staffUser.email, 'passwordHash']) {
+      expect(response.body).not.toContain(secret)
+    }
+  })
+})
