@@ -293,9 +293,9 @@ Tasks T11..T15.
 **Requirement**: AUTHN-01, AUTHN-20, AUTHN-30, AUTHN-33
 
 **Done when**:
-- [ ] `loginController` responde 200 com `accessToken`, `expiresIn` 1800 e `user`; assina com `expiresIn: '8h'`.
-- [ ] `logoutController` responde 204 sem corpo; `meController` devolve o usuário atual.
-- [ ] `check-types` passa.
+- [x] `loginController` responde 200 com `accessToken`, `expiresIn` 1800 e `user`; assina com `expiresIn: '8h'`.
+- [x] `logoutController` responde 204 sem corpo; `meController` devolve o usuário atual.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
