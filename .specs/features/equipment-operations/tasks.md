@@ -128,9 +128,9 @@ Tasks T8..T12.
 **Requirement**: EQP-04, EQP-08, EQP-11, EQP-12, EQP-13
 
 **Done when**:
-- [ ] `findAgendaReservations`, `findOperable`, `loadDetail`, `pickupTx`, `returnTx`, `markNoShowsTx`, `logJob` conforme o design.
-- [ ] Todas as mudanças de status são `updateMany` condicional dentro de `$transaction`, com o histórico criado só quando `count = 1`; `markNoShowsTx` percorre os ids em ordem crescente.
-- [ ] `check-types` passa; os testes de integração vêm nas tarefas T8 a T12.
+- [x] `findAgendaReservations`, `findOperable`, `loadDetail`, `pickupTx`, `returnTx`, `markNoShowsTx`, `logJob` conforme o design.
+- [x] Todas as mudanças de status são `updateMany` condicional dentro de `$transaction`, com o histórico criado só quando `count = 1`; `markNoShowsTx` percorre os ids em ordem crescente.
+- [x] `check-types` passa; os testes de integração vêm nas tarefas T8 a T12.
 
 **Tests**: none
 **Gate**: build
