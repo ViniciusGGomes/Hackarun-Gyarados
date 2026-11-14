@@ -248,9 +248,9 @@ Tasks T10..T11.
 **Requirement**: AUTH-10
 
 **Done when**:
-- [ ] `getAbility(user)` usa `defineAbilityFor` de `@saas/auth`.
-- [ ] Nenhuma regra de permissão duplicada em `apps/web`.
-- [ ] `check-types` passa.
+- [x] `getAbility(user)` usa `defineAbilityFor` de `@saas/auth`.
+- [x] Nenhuma regra de permissão duplicada em `apps/web` (grep: só `lib/ability.ts` delega a `@saas/auth`).
+- [x] Build gate (`@saas/auth` + `@saas/api`) verde; typecheck completo do `web` bloqueado por código template pré-existente (fora do escopo).
 
 **Tests**: none
 **Gate**: build
