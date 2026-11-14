@@ -110,9 +110,9 @@ Tasks T8..T12.
 **Requirement**: EQP-02, EQP-07, EQP-09, EQP-14
 
 **Done when**:
-- [ ] `AgendaQuerySchema`, `IdParamsSchema`, `PickupBodySchema` e `ReturnBodySchema` (corpo opcional; `notes` e `conditionNotes` ≤ 300 com `trim` e remoção de caracteres de controle; campos desconhecidos descartados).
-- [ ] `AgendaSchema` e `RequestDetailSchema` com os campos do OpenAPI.
-- [ ] `check-types` passa.
+- [x] `AgendaQuerySchema`, `IdParamsSchema`, `PickupBodySchema` e `ReturnBodySchema` (corpo opcional; `notes` e `conditionNotes` ≤ 300 com `trim` e remoção de caracteres de controle; campos desconhecidos descartados).
+- [x] `AgendaSchema` e `RequestDetailSchema` com os campos do OpenAPI.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
