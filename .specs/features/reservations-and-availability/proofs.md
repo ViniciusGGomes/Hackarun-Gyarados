@@ -1,6 +1,6 @@
 # reservations-and-availability proofs
 
-**HEAD**: 54a343c
+**HEAD**: e2a3bd4
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
 **Result**: 57 pass, 0 fail
@@ -70,19 +70,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/http/reservations-routes.test.ts > limits and concurrency > booking lock is per type and availability takes no lock 529ms
- ✓ src/http/reservations-routes.test.ts > limits and concurrency > reservation endpoint is rate limited and availability is not 198ms
+ ✓ src/http/reservations-routes.test.ts > limits and concurrency > booking lock is per type and availability takes no lock 538ms
+ ✓ src/http/reservations-routes.test.ts > limits and concurrency > reservation endpoint is rate limited and availability is not 203ms
  ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel valid reservation returns 200 and records history 99ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel frees the unit for availability and a new booking 170ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel unknown protocol wrong phone or anonymized returns the same 404 135ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel in a final or picked up status returns 409 REQUEST_NOT_CANCELLABLE 138ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel invalid phone or reason returns 400 82ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel and pickup at the same time apply one transition 425ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel frees the unit for availability and a new booking 163ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel unknown protocol wrong phone or anonymized returns the same 404 159ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel in a final or picked up status returns 409 REQUEST_NOT_CANCELLABLE 139ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel invalid phone or reason returns 400 119ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel and pickup at the same time apply one transition 370ms
  ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel of a request that is not a reservation returns 409 66ms
- ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel view exposes only public fields without a token 94ms
+ ✓ src/http/reservations-routes.test.ts > POST /api/v1/tracking/:protocol/cancel > cancel view exposes only public fields without a token 116ms
 
  Test Files  12 passed (12)
       Tests  158 passed (158)
-   Start at  08:17:47
-   Duration  11.39s (tests 70%, import 26%, transform 3%, worker 1%)
+   Start at  08:18:49
+   Duration  11.53s (tests 68%, import 28%, transform 3%, worker 1%)
 ```
