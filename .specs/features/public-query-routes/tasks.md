@@ -96,9 +96,9 @@ Task T9.
 **Requirement**: PUB-04, PUB-05, PUB-09
 
 **Done when**:
-- [ ] `LocationSchema` com `id, name, floor, type, active`.
-- [ ] `PrivacyNoticeSchema` com `version, text, updatedAt`.
-- [ ] `check-types` passa.
+- [x] `LocationSchema` com `id, name, floor, type, active`.
+- [x] `PrivacyNoticeSchema` com `version, text, updatedAt`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
@@ -262,6 +262,6 @@ Proof: run test | ✓ public routes work without auth
 
 ## Handoff
 
-**Settled mid-build:** none
+**Settled mid-build:** T2 executed before T1 (ServiceDetailSchema needs LocationSchema); PrivacyNoticeSchema lives in privacy.schemas.ts per design; NotFoundError + 404 body {statusCode, code, message} and /api/v1 prefix (server.ts + tests) added in later tasks
 **Dispatched:** none
 **Walked:** none
