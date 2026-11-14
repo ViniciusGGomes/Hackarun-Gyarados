@@ -66,7 +66,7 @@ export function setupTestDb() {
 /** Empties the operational tables and seeds the minimum the reservation flows need. */
 export async function resetTestDb() {
   await testPrisma.$executeRawUnsafe(
-    'TRUNCATE TABLE requests, unmet_demands, equipment, opening_hours, reservation_settings, privacy_notices, locations RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE requests, users, sessions, unmet_demands, equipment, opening_hours, reservation_settings, privacy_notices, locations RESTART IDENTITY CASCADE',
   )
 
   const sac = await testPrisma.location.create({ data: { name: 'SAC / Espaço do Cliente', floor: 'Térreo', type: 'service' } })
@@ -92,4 +92,16 @@ export async function resetTestDb() {
   })
 
   return { sacLocationId: sac.id, familyLocationId: family.id }
+}
+
+let staffSeq = 0
+
+/** Creates an active staff user with a valid session, the way the login would leave them. */
+export async function seedStaff(role: 'attendant' | 'manager', name = 'Equipe Teste') {
+  const user = await testPrisma.user.create({
+    data: { name, email: `staff${++staffSeq}-${Date.now()}@teste.com`, passwordHash: 'not-a-real-hash', role },
+  })
+  const session = await testPrisma.session.create({ data: { userId: user.id } })
+
+  return { userId: user.id, sessionId: session.id }
 }
