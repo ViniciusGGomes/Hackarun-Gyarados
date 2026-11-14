@@ -198,6 +198,14 @@ describe('login() lockout', () => {
     await expect(login('paulo@exemplo.com', PASSWORD, NOW)).rejects.toBeInstanceOf(InvalidCredentialsError)
   })
 
+  it('simultaneous wrong passwords right after a lock expired are all counted', async () => {
+    const fake = setup([user({ failedLoginAttempts: 5, lockedUntil: new Date(NOW.getTime() - minutes(1)) })])
+
+    await Promise.allSettled(Array.from({ length: 3 }, () => login('paulo@exemplo.com', 'errada', NOW)))
+
+    expect(fake.users.get(PAULO_ID)).toMatchObject({ failedLoginAttempts: 3, lockedUntil: null })
+  })
+
   it('simultaneous wrong passwords cross the threshold and lock the account', async () => {
     const fake = setup([user({})])
 

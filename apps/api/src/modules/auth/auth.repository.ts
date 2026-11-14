@@ -1,16 +1,26 @@
 import { prisma } from '../../lib/prisma'
+import { MAX_FAILED_ATTEMPTS } from './auth.constants'
 
 export const authRepository = {
   findUserByEmail(email: string) {
     return prisma.user.findUnique({ where: { email } })
   },
 
-  // Starts a new count after a lock (or a stale count) ended: this attempt is the first failure.
-  restartFailedAttempts(userId: string) {
-    return prisma.user.update({
-      where: { id: userId },
+  // Compare-and-set: only the request that still finds a finished lock (or a count already at the
+  // limit) restarts the count at 1; concurrent attempts then see a fresh count and increment it.
+  async restartFailedAttempts(userId: string, now: Date) {
+    const { count } = await prisma.user.updateMany({
+      where: {
+        id: userId,
+        OR: [
+          { lockedUntil: { lte: now } },
+          { lockedUntil: null, failedLoginAttempts: { gte: MAX_FAILED_ATTEMPTS } },
+        ],
+      },
       data: { failedLoginAttempts: 1, lockedUntil: null },
     })
+
+    return count === 1
   },
 
   async incrementFailedAttempts(userId: string) {

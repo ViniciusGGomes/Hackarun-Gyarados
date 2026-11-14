@@ -456,10 +456,15 @@ describe('admin routes with real login tokens', () => {
     const forbidden = await authed(app, 'GET', '/api/v1/admin/users', attendant)
     const okAttendant = await authed(app, 'GET', '/api/v1/admin/requests', attendant)
     const okManager = await authed(app, 'GET', '/api/v1/admin/users', manager)
+    const noNotice = await app.inject({ method: 'GET', url: '/api/v1/privacy-notice' })
 
-    expect([noToken.statusCode, forbidden.statusCode, okAttendant.statusCode, okManager.statusCode]).toEqual([
-      401, 403, 200, 200,
-    ])
+    expect([
+      noToken.statusCode,
+      forbidden.statusCode,
+      okAttendant.statusCode,
+      okManager.statusCode,
+      noNotice.statusCode,
+    ]).toEqual([401, 403, 200, 200, 404])
   })
 
   it('token from login opens an admin route of its role', async () => {

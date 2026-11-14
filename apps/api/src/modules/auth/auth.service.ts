@@ -44,9 +44,8 @@ export async function login(email: string, password: string, now: Date = new Dat
   const passwordMatches = await bcrypt.compare(password, user.passwordHash)
 
   if (!passwordMatches) {
-    const attempts = staleCount
-      ? (await authRepository.restartFailedAttempts(user.id), 1)
-      : await authRepository.incrementFailedAttempts(user.id)
+    const restarted = staleCount && (await authRepository.restartFailedAttempts(user.id, now))
+    const attempts = restarted ? 1 : await authRepository.incrementFailedAttempts(user.id)
 
     if (attempts >= MAX_FAILED_ATTEMPTS) {
       await authRepository.setLockedUntil(user.id, new Date(now.getTime() + LOCK_DURATION_MS))

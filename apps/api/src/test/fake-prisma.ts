@@ -48,7 +48,28 @@ export function createFakePrisma(seed: { users: FakeUser[] }) {
     return Object.fromEntries(Object.keys(select).filter((k) => select[k]).map((k) => [k, row[k]]))
   }
 
+  type Condition = Record<string, unknown>
+
+  function matches(row: Data, where: Condition): boolean {
+    return Object.entries(where).every(([key, expected]) => {
+      if (key === 'OR') return (expected as Condition[]).some((branch) => matches(row, branch))
+      const value = row[key]
+      if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+        const ops = expected as { lte?: Date; gte?: number }
+        if (ops.lte !== undefined) return value instanceof Date && value <= ops.lte
+        if (ops.gte !== undefined) return typeof value === 'number' && value >= ops.gte
+      }
+      return value === expected
+    })
+  }
+
   const prisma = {
+    privacyNotice: {
+      async findFirst() {
+        await tick()
+        return null
+      },
+    },
     user: {
       async findUnique({ where }: { where: { id?: string; email?: string } }) {
         await tick()
@@ -63,6 +84,17 @@ export function createFakePrisma(seed: { users: FakeUser[] }) {
         if (!row) throw new Error('Record to update not found')
         applyData(row as unknown as Data, data)
         return pick(row as unknown as Data, select)
+      },
+      async updateMany({ where, data }: { where: Condition; data: Data }) {
+        await tick()
+        let count = 0
+        for (const row of users.values()) {
+          if (matches(row as unknown as Data, where)) {
+            applyData(row as unknown as Data, data)
+            count++
+          }
+        }
+        return { count }
       },
     },
     session: {
