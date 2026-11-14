@@ -166,8 +166,8 @@ Tasks T18..T21.
 **Requirement**: RSV-08
 
 **Done when**:
-- [ ] A pasta se chama `tracking`; nenhum arquivo referencia `trancking`.
-- [ ] `check-types` passa.
+- [x] A pasta se chama `tracking`; nenhum arquivo referencia `trancking`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
