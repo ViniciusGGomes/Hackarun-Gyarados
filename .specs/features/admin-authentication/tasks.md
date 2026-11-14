@@ -273,11 +273,11 @@ Tasks T11..T15.
 **Requirement**: AUTHN-20, AUTHN-31, AUTHN-32, AUTHN-40
 
 **Done when**:
-- [ ] Token sem `sid`, com assinatura inválida, expirado, sessão revogada ou inativa → `UnauthorizedError`.
-- [ ] Usuário inexistente ou inativo continua → `UnauthorizedError`; o papel continua vindo do banco.
-- [ ] `getCurrentSessionId` devolve o `sid` validado; uma leitura de sessão por request.
-- [ ] `auth.test.ts`, `authorization.test.ts` e `attendance.test.ts` passam com o arranjo adaptado: mesmas asserções, mesma quantidade de testes (3 + 5 + 2).
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Token sem `sid`, com assinatura inválida, expirado, sessão revogada ou inativa → `UnauthorizedError`.
+- [x] Usuário inexistente ou inativo continua → `UnauthorizedError`; o papel continua vindo do banco.
+- [x] `getCurrentSessionId` devolve o `sid` validado; uma leitura de sessão por request.
+- [x] `auth.test.ts`, `authorization.test.ts` e `attendance.test.ts` passam com o arranjo adaptado: mesmas asserções, mesma quantidade de testes (3 + 5 + 2).
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
