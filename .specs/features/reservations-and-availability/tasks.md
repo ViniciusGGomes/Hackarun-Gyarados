@@ -331,8 +331,8 @@ Tasks T18..T21.
 **Requirement**: RSV-08
 
 **Done when**:
-- [ ] `200` com a `TrackingView` do cancelamento.
-- [ ] `check-types` passa.
+- [x] `200` com a `TrackingView` do cancelamento.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
