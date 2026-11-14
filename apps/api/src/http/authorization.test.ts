@@ -12,10 +12,14 @@ vi.mock('../lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    request: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
 const findUniqueMock = vi.mocked(prisma.user.findUnique)
+const requestFindUniqueMock = vi.mocked(prisma.request.findUnique)
 
 const ATTENDANT_ID = '00000000-0000-0000-0000-000000000001'
 const MANAGER_ID = '00000000-0000-0000-0000-000000000002'
@@ -35,6 +39,7 @@ async function buildApp() {
 describe('manager-only routes', () => {
   beforeEach(() => {
     findUniqueMock.mockReset()
+    requestFindUniqueMock.mockReset()
   })
 
   it('attendant returns 403 on manager route', async () => {
@@ -77,5 +82,35 @@ describe('manager-only routes', () => {
     })
 
     expect(response.statusCode).toBe(403)
+  })
+
+  it('attendant cannot reopen final', async () => {
+    const app = await buildApp()
+    findUniqueMock.mockResolvedValue({ id: ATTENDANT_ID, role: 'attendant', active: true } as never)
+    requestFindUniqueMock.mockResolvedValue({ status: 'returned' } as never)
+    const token = app.jwt.sign({ sub: ATTENDANT_ID })
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/admin/requests/00000000-0000-0000-0000-000000000010/status',
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(response.statusCode).toBe(403)
+  })
+
+  it('manager can reopen final', async () => {
+    const app = await buildApp()
+    findUniqueMock.mockResolvedValue({ id: MANAGER_ID, role: 'manager', active: true } as never)
+    requestFindUniqueMock.mockResolvedValue({ status: 'returned' } as never)
+    const token = app.jwt.sign({ sub: MANAGER_ID })
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/admin/requests/00000000-0000-0000-0000-000000000010/status',
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(response.statusCode).toBe(200)
   })
 })

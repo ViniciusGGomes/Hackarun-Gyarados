@@ -323,12 +323,12 @@ Proof: run integration | ✓ inactive user is denied
 Proof: run integration | ✓ role is derived from the database
 
 **C16** - Attendant cannot reopen a final request (AUTH-06, AC 2)
-Proof: run unit | ✓ attendant cannot updateStatus on final
+Proof: run integration | ✓ attendant cannot reopen final
 
 ---
 
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** none
+**Dispatched:** Verifier at HEAD 1a286ae (diff d013e2b..1a286ae)
 **Walked:** none
