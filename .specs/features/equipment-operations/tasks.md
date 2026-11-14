@@ -182,8 +182,8 @@ Tasks T8..T12.
 **Requirement**: EQP-01, EQP-04, EQP-08
 
 **Done when**:
-- [ ] Controllers `getAgendaController`, `pickupController` e `returnController`, sem Prisma nem regra de negócio.
-- [ ] `check-types` passa.
+- [x] Controllers `getAgendaController`, `pickupController` e `returnController`, sem Prisma nem regra de negócio.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
