@@ -1,9 +1,9 @@
 # admin-authentication proofs
 
-**HEAD**: f912ff2
+**HEAD**: 8f08708
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
-**Result**: 39 pass, 0 fail
+**Result**: 41 pass, 0 fail
 
 | Check | Proof | Result |
 | --- | --- | --- |
@@ -35,16 +35,18 @@
 | C27 | `run test / ✓ logout without a token returns 401` | pass |
 | C28 | `run test / ✓ login expiresIn is 1800 seconds` | pass |
 | C29 | `run test / ✓ admin route without token returns 401` | pass |
-| C30 | `run test / ✓ attendant returns 403 on manager route` | pass |
+| C30 | `run test / ✓ attendant on a manager route returns 403 FORBIDDEN` | pass |
 | C31 | `run test / ✓ manager accesses manager route` | pass |
 | C32 | `run test / ✓ token from login opens an admin route of its role` | pass |
 | C33 | `run test / ✓ auth errors use the ErrorResponse format` | pass |
-| C34 | `run test / ✓ attendant can access attendance routes` | pass |
+| C34 | `run test / ✓ existing admin routes keep their status codes` | pass |
 | C35 | `run test / ✓ login email is case-insensitive` | pass |
 | C36 | `run test / ✓ me with a non-Bearer header returns 401` | pass |
 | C37 | `run test / ✓ lock does not revoke issued tokens` | pass |
 | C38 | `run test / ✓ two logins create two independent sessions` | pass |
 | C39 | `run test / ✓ login database failure returns 500 without details` | pass |
+| C40 | `run test / ✓ login token carries sub and sid and lives 8 hours` | pass |
+| C41 | `run test / ✓ me with a token without sid returns 401` | pass |
 | Build | `pnpm --filter @saas/api run check-types` | pass |
 
 ## Output
@@ -52,19 +54,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/http/auth-routes.test.ts > admin routes with real login tokens > token from login opens an admin route of its role 20ms
- ✓ src/modules/auth/auth.service.test.ts > login() lockout > simultaneous wrong passwords are all counted 404ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > accepts a session used within the inactivity window and renews its activity 85ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > keeps a session alive as long as each request is within 30 minutes of the previous one 73ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects a session idle for more than 30 minutes 82ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > accepts a session idle for exactly 30 minutes 73ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects an unknown session id 81ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects a session that belongs to another user 98ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > logout revokes the session and later validation rejects it 93ms
- ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > two logins create two independent sessions and logout revokes only one 183ms
+ ✓ src/modules/auth/auth.service.test.ts > login() lockout > simultaneous wrong passwords cross the threshold and lock the account 586ms
+ ✓ src/modules/auth/auth.service.test.ts > login() lockout > simultaneous wrong passwords are all counted 358ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > accepts a session used within the inactivity window and renews its activity 93ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > keeps a session alive as long as each request is within 30 minutes of the previous one 81ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects a session idle for more than 30 minutes 74ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > accepts a session idle for exactly 30 minutes 78ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects an unknown session id 73ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > rejects a session that belongs to another user 80ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > logout revokes the session and later validation rejects it 88ms
+ ✓ src/modules/auth/auth.service.test.ts > validateSession() and logout() > two logins create two independent sessions and logout revokes only one 156ms
 
  Test Files  8 passed (8)
-      Tests  82 passed (82)
-   Start at  07:23:41
-   Duration  3.95s (tests 47%, import 45%, transform 7%, worker 1%)
+      Tests  91 passed (91)
+   Start at  07:30:39
+   Duration  4.76s (tests 53%, import 40%, transform 6%, worker 1%)
 ```
