@@ -133,9 +133,9 @@ Task T9.
 **Requirement**: PUB-04, PUB-05, PUB-10
 
 **Done when**:
-- [ ] `locations.findManyActive` filtra `active: true`.
-- [ ] `privacy.findActive` usa `findFirst({ where: { active: true } })`.
-- [ ] `check-types` passa.
+- [x] `locations.findManyActive` filtra `active: true`.
+- [x] `privacy.findActive` usa `findFirst({ where: { active: true } })`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
