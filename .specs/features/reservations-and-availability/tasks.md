@@ -9,7 +9,8 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/reservations-and-availability/design.md`
-**Status**: Draft
+**Status**: Approved
+**Approved**: 2026-11-14 - user: "aprovo"
 **Build**: pnpm --filter @saas/api run check-types
 **Run test**: pnpm --filter @saas/api exec vitest run --reporter=verbose
 

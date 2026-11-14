@@ -1,7 +1,8 @@
 # Reservations and Availability Design
 
 **Spec**: `.specs/features/reservations-and-availability/spec.md`
-**Status**: Draft
+**Status**: Approved
+**Approved**: 2026-11-14 - user: "aprovo"
 
 ---
 
