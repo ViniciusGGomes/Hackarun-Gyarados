@@ -330,5 +330,5 @@ Proof: run integration | ✓ attendant cannot reopen final
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** Verifier at HEAD 1a286ae (diff d013e2b..1a286ae)
+**Dispatched:** Verifier at HEAD 1a286ae (diff d013e2b..1a286ae) - returned
 **Walked:** none
