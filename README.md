@@ -55,6 +55,90 @@ A tecnologia sorteada foi **Node.js / FastAPI**. Após avaliação da equipe, fo
 
 Essa escolha permite utilizar uma linguagem compartilhada entre frontend e backend, além de facilitar a integração entre os componentes da aplicação.
 
+## Como rodar o projeto
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 18 ou superior
+- [pnpm](https://pnpm.io/) 9 (`npm install -g pnpm@9`)
+- [Docker](https://www.docker.com/) e Docker Compose (para o PostgreSQL)
+
+### 1. Instalar as dependências
+
+Na raiz do projeto:
+
+```bash
+pnpm install
+```
+
+### 2. Configurar as variáveis de ambiente
+
+Copie o arquivo de exemplo para `.env` na raiz do projeto:
+
+```bash
+cp .env.example .env
+```
+
+| Variável | Descrição | Exemplo |
+|---|---|---|
+| `SERVER_PORT` | Porta da API | `3333` |
+| `DATABASE_URL` | Conexão com o PostgreSQL | `postgresql://postgres:docker@localhost:5433/hackathon` |
+| `JWT_SECRET` | Segredo usado para assinar os tokens JWT | qualquer string segura |
+| `NEXT_PUBLIC_API_URL` | URL da API usada pelo frontend | `http://localhost:3333` |
+
+O frontend (Next.js) lê o `.env` da própria pasta. Para ele, copie o mesmo arquivo:
+
+```bash
+cp .env apps/web/.env.local
+```
+
+### 3. Subir o banco de dados
+
+```bash
+docker compose up -d
+```
+
+O PostgreSQL fica disponível em `localhost:5433` (usuário `postgres`, senha `docker`, banco `hackathon`).
+
+### 4. Rodar o backend (API)
+
+```bash
+cd apps/api
+
+# Cria as tabelas no banco
+pnpm db:migrate
+
+# (Opcional) Popula o banco com dados de exemplo
+pnpm prisma db seed
+
+# Inicia a API em modo de desenvolvimento
+pnpm dev
+```
+
+- API: http://localhost:3333
+- Documentação Swagger: http://localhost:3333/docs
+- Testes: `pnpm test`
+- Visualizar o banco: `pnpm db:studio`
+
+### 5. Rodar o frontend
+
+Em outro terminal, com a API em execução:
+
+```bash
+cd apps/web
+pnpm dev
+```
+
+- Aplicação: http://localhost:3000
+
+### Rodar tudo de uma vez
+
+Na raiz do projeto, o Turborepo inicia backend e frontend juntos:
+
+```bash
+pnpm dev
+```
+
 ## Documentação
 
 A documentação técnica inicial apresenta o planejamento do projeto, incluindo a definição do problema, proposta da solução, estrutura inicial das telas, arquitetura, tecnologias, infraestrutura e organização da equipe.
