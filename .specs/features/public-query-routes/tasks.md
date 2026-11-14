@@ -263,5 +263,5 @@ Proof: run test | ✓ public routes work without auth
 ## Handoff
 
 **Settled mid-build:** T2 executed before T1 (ServiceDetailSchema needs LocationSchema); PrivacyNoticeSchema lives in privacy.schemas.ts per design; NotFoundError + 404 body {statusCode, code, message} and /api/v1 prefix (server.ts + tests) added in later tasks
-**Dispatched:** none
+**Dispatched:** Verifier @ 36433bf (returned)
 **Walked:** none
