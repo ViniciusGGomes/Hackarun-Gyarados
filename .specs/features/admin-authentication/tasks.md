@@ -460,5 +460,5 @@ Proof: run test | ✓ login database failure returns 500 without details
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** none
+**Dispatched:** Verifier @ f912ff2 (pending)
 **Walked:** none
