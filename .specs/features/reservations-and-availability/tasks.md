@@ -594,5 +594,5 @@ Proof: run test | ✓ cancel view exposes only public fields without a token
 ## Handoff
 
 **Settled mid-build:** none
-**Dispatched:** none
+**Dispatched:** Verifier @ 2aa9a44 (pending)
 **Walked:** none
