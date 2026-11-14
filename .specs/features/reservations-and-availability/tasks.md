@@ -221,9 +221,9 @@ Tasks T18..T21.
 **Requirement**: RSV-08
 
 **Done when**:
-- [ ] `CancelParamsSchema` (`protocol`), `CancelBodySchema` (`phone`, `reason ≤ 200`).
-- [ ] `TrackingViewSchema` com `protocol`, `type`, `publicStatus`, `createdAt`, `summary`, `timeline`, `messages`, `canCancel`, `canReply`.
-- [ ] `check-types` passa.
+- [x] `CancelParamsSchema` (`protocol`), `CancelBodySchema` (`phone`, `reason ≤ 200`).
+- [x] `TrackingViewSchema` com `protocol`, `type`, `publicStatus`, `createdAt`, `summary`, `timeline`, `messages`, `canCancel`, `canReply`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
