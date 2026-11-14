@@ -452,5 +452,5 @@ Proof: run test | ✓ job runner skips an overlapping run
 The feature's live state, written as it happens - a compaction gives no warning.
 
 **Settled mid-build:** none
-**Dispatched:** none
+**Dispatched:** Verifier @ 71e8ce1
 **Walked:** none
