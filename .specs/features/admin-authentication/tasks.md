@@ -90,8 +90,8 @@ Tasks T11..T15.
 **Requirement**: AUTHN-02, AUTHN-03
 
 **Done when**:
-- [ ] `InvalidCredentialsError extends Error` com mensagem padrão genérica e `name`.
-- [ ] `check-types` passa.
+- [x] `InvalidCredentialsError extends Error` com mensagem padrão genérica e `name`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
