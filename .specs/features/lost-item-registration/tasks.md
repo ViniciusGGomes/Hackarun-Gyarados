@@ -67,7 +67,7 @@ Tasks T7..T10.
 ### T1: Vitest sem corrida entre arquivos de banco
 
 **What**: Config do Vitest que roda um arquivo de teste por vez, porque dois arquivos usam o mesmo banco de teste e o `TRUNCATE` de um apagaria os dados do outro.
-**Where**: `apps/api/vitest.config.ts`
+**Where**: `apps/api/vitest.config.mts`
 **Depends on**: None
 **Reuses**: nada (o pacote não tem config do Vitest).
 **Requirement**: LIR-02
@@ -110,10 +110,10 @@ Tasks T7..T10.
 **Requirement**: LIR-04, LIR-05, LIR-06, LIR-08
 
 **Done when**:
-- [ ] `CreateLostReportSchema`: obrigatórios, enums, telefone `^[0-9]{10,11}$`, e-mail ≤ 255, limites 120/500/300/500, `name`/`description` não vazios após `trim`, `photoUrl` `http`/`https`, `lostDate` real e ≤ hoje local, um e só um entre `locationId` e `unknownLocation: true`, `trim` e remoção de caracteres de controle (quebra de linha mantida em `description` e `identificationDetail`), campos extras descartados.
-- [ ] `ProtocolCreatedSchema` com os quatro campos e `CreateLostReportInput` exportado.
-- [ ] Teste unitário `lost-reports.schemas.test.ts` com um teste por regra, com os nomes dos checks C9 a C22.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `CreateLostReportSchema`: obrigatórios, enums, telefone `^[0-9]{10,11}$`, e-mail ≤ 255, limites 120/500/300/500, `name`/`description` não vazios após `trim`, `photoUrl` `http`/`https`, `lostDate` real e ≤ hoje local, um e só um entre `locationId` e `unknownLocation: true`, `trim` e remoção de caracteres de controle (quebra de linha mantida em `description` e `identificationDetail`), campos extras descartados.
+- [x] `ProtocolCreatedSchema` com os quatro campos e `CreateLostReportInput` exportado.
+- [x] Teste unitário `lost-reports.schemas.test.ts` com um teste por regra, com os nomes dos checks C9 a C22.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: unit
 **Gate**: quick
