@@ -146,9 +146,9 @@ Tasks T8..T12.
 **Requirement**: EQP-12, EQP-14
 
 **Done when**:
-- [ ] `visitor`, `reservation` (com `currentLocation`, `pickupOverdue` e `returnOverdue`), `history` em ordem crescente com `actor { type, userId, name }`, `lostReport` e `sacMessage` nulos e `messages` vazia.
-- [ ] Nenhum campo de senha, token ou de outro visitante.
-- [ ] `check-types` passa.
+- [x] `visitor`, `reservation` (com `currentLocation`, `pickupOverdue` e `returnOverdue`), `history` em ordem crescente com `actor { type, userId, name }`, `lostReport` e `sacMessage` nulos e `messages` vazia.
+- [x] Nenhum campo de senha, token ou de outro visitante.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
