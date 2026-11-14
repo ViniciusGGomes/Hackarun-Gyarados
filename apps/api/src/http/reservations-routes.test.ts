@@ -541,6 +541,7 @@ describe('POST /api/v1/reservations', () => {
     await expectRejected(at('2026-11-24', '10:00'), 'VALIDATION_ERROR') // today + 8 days
     vi.setSystemTime(new Date('2026-11-17T14:10:00Z')) // Tuesday 11:10
     await expectRejected(at(TUESDAY, '10:00'), 'VALIDATION_ERROR') // already past
+    await expectRejected(at(TUESDAY, '11:00'), 'VALIDATION_ERROR') // the block in progress is only bookable with mode now
 
     expect(await counts()).toEqual(NOTHING_STORED)
   })
@@ -872,6 +873,7 @@ describe('POST /api/v1/tracking/:protocol/cancel', () => {
     const app = await buildApp()
     const protocol = await reserveAndGetProtocol(app)
 
+    vi.setSystemTime(new Date('2026-11-17T13:40:00Z')) // 10:40 local: the pickup deadline (10:15) has passed, nobody picked up
     const response = await cancel(app, protocol, { phone: PHONE, reason: 'Mudei de ideia' })
     const view = response.json()
 
@@ -889,7 +891,7 @@ describe('POST /api/v1/tracking/:protocol/cancel', () => {
 
     const stored = await testPrisma.request.findUniqueOrThrow({ where: { protocol }, include: { history: true } })
     expect(stored.status).toBe('cancelled')
-    expect(stored.completedAt?.toISOString()).toBe(NOW.toISOString())
+    expect(stored.completedAt?.toISOString()).toBe('2026-11-17T13:40:00.000Z')
     const last = stored.history.find((entry) => entry.toStatus === 'cancelled')
     expect(last).toMatchObject({ fromStatus: 'reserved', actorType: 'visitor', internalNote: 'Mudei de ideia' })
   })

@@ -337,6 +337,8 @@ Alternativas e falhas: erro no meio da reserva desfaz tudo (nenhum `Request` ór
 
 ## Edge Cases
 
+- WHEN the current block is listed by the availability (decision D2) THEN the system SHALL accept a booking of it only with `mode` `now`, and SHALL answer `mode` `scheduled` for it with `400` and code `VALIDATION_ERROR`, because a scheduled start must not be in the past.
+- WHEN a reservation is still `reserved` after its `pickupDeadline` and before the no-show job (RF19) changes it THEN the system SHALL still accept its cancellation, because RF08 only forbids cancelling after the pickup.
 - WHEN the Gestor changes `slotMinutes` or `loanDurationMinutes` after reservations exist THEN the system SHALL keep their stored `startAt`/`endAt` and SHALL compute new blocks with the new values.
 - IF two reservations of the same phone and type are submitted at the same instant THEN the system SHALL create at most one when the limit is 1.
 - IF a block has `availableUnits` 1 and two distinct phones book it simultaneously THEN the system SHALL create exactly one.
