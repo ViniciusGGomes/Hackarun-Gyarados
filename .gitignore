@@ -45,3 +45,6 @@ yarn-error.log*
 .agents/
 __pycache__/
 *.pyc
+
+# Clone aninhado
+/Hackarun-Gyarados/
