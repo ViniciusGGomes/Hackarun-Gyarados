@@ -314,8 +314,8 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-04
 
 **Done when**:
-- [ ] `200` com a `Availability`; `201` com a `ReservationCreated`.
-- [ ] `check-types` passa.
+- [x] `200` com a `Availability`; `201` com a `ReservationCreated`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
