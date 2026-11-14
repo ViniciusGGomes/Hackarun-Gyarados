@@ -179,9 +179,9 @@ Tasks T11..T15.
 **Requirement**: AUTHN-10, AUTHN-30, AUTHN-31, AUTHN-32
 
 **Done when**:
-- [ ] `findUserByEmail`, `resetLock`, `incrementFailedAttempts` (via `update` com `{ increment: 1 }`, devolve o novo valor), `setLockedUntil`, `markLoginSuccess`.
-- [ ] `createSession`, `findSessionById`, `touchSession`, `revokeSession`.
-- [ ] `check-types` passa.
+- [x] `findUserByEmail`, `resetLock`, `incrementFailedAttempts` (via `update` com `{ increment: 1 }`, devolve o novo valor), `setLockedUntil`, `markLoginSuccess`.
+- [x] `createSession`, `findSessionById`, `touchSession`, `revokeSession`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
