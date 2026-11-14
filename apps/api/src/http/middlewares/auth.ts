@@ -7,9 +7,9 @@ import { getUserPermissions } from '../../utils/get-user-permissions'
 import { UnauthorizedError } from '../routes/_errors/unauthorized-error'
 
 export const auth = fastifyPlugin(async (app: FastifyInstance) => {
-  // preValidation: the identity and the ability exist before the body and the query are validated, so a
-  // request with no token answers 401 even when its input is also invalid.
-  app.addHook('preValidation', async (request) => {
+  // onRequest: the identity and the ability exist before the body is read and validated, so a request with
+  // no token answers 401 even when its body is malformed or its input is invalid.
+  app.addHook('onRequest', async (request) => {
     let resolved: Promise<{ userId: string; sessionId: string }> | undefined
 
     // Verifies the token and its session once per request.

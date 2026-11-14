@@ -293,7 +293,7 @@ Sem `pg_advisory_xact_lock`: a disponibilidade não é decidida aqui (só diminu
 **Acceptance Criteria**:
 
 1. IF a request to any of the three routes has no token, an invalid token, an expired token or a revoked session THEN the system SHALL return `401` with code `UNAUTHORIZED`. (EQP-10)
-   The access control runs before the validation of the input: a request with no token and invalid input answers `401`, and one without the ability answers `403`, never `400`. (EQP-10)
+   The access control runs before the body is read and validated: a request with no token answers `401`, and one without the ability answers `403`, never `400`, even with a malformed body or invalid input. (EQP-10)
 2. IF the authenticated user lacks the ability of the route (`read`, `pickup` or `return` on `Reservation`) THEN the system SHALL return `403` with code `FORBIDDEN` and SHALL NOT change anything. (EQP-10)
 3. The system SHALL allow `attendant` and `manager` on the three routes. (EQP-10)
 4. The system SHALL read the role from the database on each request and SHALL NOT trust any role sent by the client. (EQP-10)
@@ -381,7 +381,7 @@ Sem `pg_advisory_xact_lock`: a disponibilidade não é decidida aqui (só diminu
 - IF the reservation is `reserved`, past its `pickupDeadline` and the routine has not run yet THEN the system SHALL answer the pickup with `409`, even though the status is still `reserved`.
 - WHEN the Gestor changes `pickupToleranceMinutes`, `slotMinutes` or the opening hours after reservations exist THEN the system SHALL keep the stored `startAt`, `endAt` and `pickupDeadline`.
 - WHEN a picked-up reservation passes its `endAt` THEN the public availability stops counting it (limitation recorded in the reservations spec) while the agenda keeps `returnOverdue` true until the return.
-- IF the pickup or return body is absent (no body and no `Content-Type`) or `{}` THEN the system SHALL accept it when the document is not required; an empty body sent with `Content-Type: application/json` is answered `400 VALIDATION_ERROR` by Fastify itself, and the client must omit the header or send `{}`.
+- IF the pickup or return body is empty, absent or `{}` (including an empty body sent with `Content-Type: application/json`) THEN the system SHALL accept it when the document is not required.
 - IF the body is not JSON or is malformed THEN the system SHALL answer `400 VALIDATION_ERROR`.
 - WHEN the agenda day has no reservations THEN the system SHALL return the blocks with `reservations` empty and `freeUnits` equal to `totalUnits`.
 - WHEN the equipment type has no active equipment THEN the system SHALL return `totalUnits` and `freeUnits` 0.

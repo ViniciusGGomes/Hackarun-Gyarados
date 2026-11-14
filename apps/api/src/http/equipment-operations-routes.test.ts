@@ -1119,3 +1119,66 @@ describe('access control comes before validation, and other agenda rules', () =>
     expect((await giveBack(app, toReturn.id, headers, {})).statusCode).toBe(200)
   })
 })
+
+describe('empty bodies and access control before the body is read', () => {
+  const json = { 'content-type': 'application/json' }
+
+  it('pickup and return accept an empty body even with a JSON content type', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const toPick = await seedReservation()
+    const toReturn = await seedReservation({ status: 'picked_up' })
+
+    const picked = await app.inject({ method: 'POST', url: `/api/v1/admin/reservations/${toPick.id}/pickup`, headers: { ...headers, ...json }, payload: '' })
+    const returned = await app.inject({ method: 'POST', url: `/api/v1/admin/reservations/${toReturn.id}/return`, headers: { ...headers, ...json }, payload: '' })
+
+    expect(picked.statusCode).toBe(200)
+    expect(returned.statusCode).toBe(200)
+    expect((await stored(toPick.id)).status).toBe('picked_up')
+    expect((await stored(toReturn.id)).status).toBe('returned')
+  })
+
+  it('a malformed or empty JSON body is answered 401 without a token and 403 without the ability', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+    const bodies = ['{bad', '{"notes": ', '[1,', '']
+    const urls = [`/api/v1/admin/reservations/${target.id}/pickup`, `/api/v1/admin/reservations/${target.id}/return`]
+
+    for (const url of urls) {
+      for (const payload of bodies) {
+        const noToken = await app.inject({ method: 'POST', url, headers: json, payload })
+
+        expect(noToken.statusCode, `${url} ${payload}`).toBe(401)
+      }
+    }
+
+    vi.mocked(getUserPermissions).mockReturnValue({ can: () => false } as never)
+
+    for (const url of urls) {
+      for (const payload of bodies) {
+        const noAbility = await app.inject({ method: 'POST', url, headers: { ...headers, ...json }, payload })
+
+        expect(noAbility.statusCode, `${url} ${payload}`).toBe(403)
+      }
+    }
+    expect((await stored(target.id)).status).toBe('reserved')
+  })
+
+  it('a JSON body with an unsafe key is read as plain data and cannot change the result', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/reservations/${target.id}/pickup`,
+      headers: { ...headers, ...json },
+      payload: '{"__proto__": {"status": "returned"}, "constructor": {"prototype": {"polluted": true}}, "notes": "ok"}',
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    expect((await stored(target.id)).reservation?.pickupNotes).toBe('ok')
+  })
+})

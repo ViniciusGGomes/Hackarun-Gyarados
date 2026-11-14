@@ -469,6 +469,15 @@ Proof: run test | ✓ pickup and return with a malformed JSON body return 400 an
 **C62** - The agenda free units use the peak of simultaneous reservations, not their count (EQP-01, Agenda AC 3)
 Proof: run test | ✓ agenda free units use the peak and not the count of reservations
 
+**C63** - Pickup and return accept an empty body even with a JSON content type (EQP-07, Edge)
+Proof: run test | ✓ pickup and return accept an empty body even with a JSON content type
+
+**C64** - A malformed or empty JSON body is answered 401 without a token and 403 without the ability (EQP-10, Auth AC 1, 2)
+Proof: run test | ✓ a malformed or empty JSON body is answered 401 without a token and 403 without the ability
+
+**C65** - A JSON body with unsafe keys is read as plain data and changes nothing (EQP-07)
+Proof: run test | ✓ a JSON body with an unsafe key is read as plain data and cannot change the result
+
 ---
 
 ## Handoff

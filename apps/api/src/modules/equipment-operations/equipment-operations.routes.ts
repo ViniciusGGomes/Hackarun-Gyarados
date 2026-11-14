@@ -13,10 +13,24 @@ import {
 } from './equipment-operations.schemas'
 
 export async function equipmentOperationsRoutes(app: FastifyInstance) {
+  // The pickup and return bodies are optional, and a client that always sends `Content-Type: application/json`
+  // sends an empty body: Fastify rejects that by default, so inside this plugin an empty JSON body is "no body".
+  // The parsed object is only ever read through the Zod schemas, which keep just the declared keys.
+  app.removeContentTypeParser('application/json')
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+    if (body === '') return done(null, undefined)
+
+    try {
+      done(null, JSON.parse(body as string))
+    } catch {
+      done(Object.assign(new Error('Malformed JSON body'), { statusCode: 400 }), undefined)
+    }
+  })
+
   app.withTypeProvider<ZodTypeProvider>().get(
     '/admin/agenda',
     {
-      preValidation: authorize('read', 'Reservation'),
+      onRequest: authorize('read', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Agenda do dia',
@@ -31,7 +45,7 @@ export async function equipmentOperationsRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/admin/reservations/:id/pickup',
     {
-      preValidation: authorize('pickup', 'Reservation'),
+      onRequest: authorize('pickup', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Registrar retirada',
@@ -47,7 +61,7 @@ export async function equipmentOperationsRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/admin/reservations/:id/return',
     {
-      preValidation: authorize('return', 'Reservation'),
+      onRequest: authorize('return', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Registrar devolução',
