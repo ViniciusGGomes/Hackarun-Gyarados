@@ -124,10 +124,10 @@ Tasks T11..T15.
 **Requirement**: AUTHN-50, AUTHN-40
 
 **Done when**:
-- [ ] `InvalidCredentialsError` → 401 `INVALID_CREDENTIALS`; `AccountLockedError` → 423 `ACCOUNT_LOCKED`; `UnauthorizedError` → 401 `UNAUTHORIZED`; `ForbiddenError` → 403 `FORBIDDEN`; validação Zod e `BadRequestError` → 400 `VALIDATION_ERROR` com `details`.
-- [ ] Os status codes de `UnauthorizedError`, `ForbiddenError` e `BadRequestError` não mudam; os branches de 404, 4xx genérico e 500 ficam intactos.
-- [ ] Teste de integração `apps/api/src/http/error-response.test.ts` cobre cada código com uma rota de teste que lança o erro.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` (todos os testes existentes continuam verdes).
+- [x] `InvalidCredentialsError` → 401 `INVALID_CREDENTIALS`; `AccountLockedError` → 423 `ACCOUNT_LOCKED`; `UnauthorizedError` → 401 `UNAUTHORIZED`; `ForbiddenError` → 403 `FORBIDDEN`; validação Zod e `BadRequestError` → 400 `VALIDATION_ERROR` com `details`.
+- [x] Os status codes de `UnauthorizedError`, `ForbiddenError` e `BadRequestError` não mudam; os branches de 404, 4xx genérico e 500 ficam intactos.
+- [x] Teste de integração `apps/api/src/http/error-response.test.ts` cobre cada código com uma rota de teste que lança o erro.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` (todos os testes existentes continuam verdes).
 
 **Tests**: integration
 **Gate**: full
