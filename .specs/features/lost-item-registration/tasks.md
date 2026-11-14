@@ -235,8 +235,8 @@ Tasks T7..T10.
 **Requirement**: LIR-11
 
 **Done when**:
-- [ ] Testes com os nomes dos checks C37 a C39, com o relógio controlado para a janela.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` e `pnpm --filter @saas/api run check-types`.
+- [x] Testes com os nomes dos checks C37 a C39, com o relógio controlado para a janela.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` e `pnpm --filter @saas/api run check-types`.
 
 **Tests**: integration
 **Gate**: full

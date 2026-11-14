@@ -424,3 +424,42 @@ describe('failure, privacy and malformed bodies', () => {
     expect(await counts()).toEqual(NOTHING_STORED)
   })
 })
+
+describe('rate limit', () => {
+  it('eleventh request in a minute returns 429 TOO_MANY_REQUESTS', async () => {
+    const app = await buildApp()
+
+    for (let i = 0; i < 10; i++) {
+      expect((await report(app)).statusCode).toBe(201)
+    }
+    const blocked = await report(app)
+
+    expect(blocked.statusCode).toBe(429)
+    expect(blocked.json()).toMatchObject({ statusCode: 429, code: 'TOO_MANY_REQUESTS' })
+    expect(await testPrisma.request.count()).toBe(10) // the blocked one was not processed
+  })
+
+  it('invalid requests count toward the limit', async () => {
+    const app = await buildApp()
+
+    for (let i = 0; i < 10; i++) {
+      expect((await report(app, {})).statusCode).toBe(400)
+    }
+
+    const blocked = await report(app) // a valid body, but the origin already spent its 10
+
+    expect(blocked.statusCode).toBe(429)
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('limit window ends and requests are accepted again', async () => {
+    const app = await buildApp()
+
+    for (let i = 0; i < 10; i++) await report(app)
+    expect((await report(app)).statusCode).toBe(429)
+
+    vi.setSystemTime(new Date(NOW.getTime() + 61_000))
+
+    expect((await report(app)).statusCode).toBe(201)
+  })
+})
