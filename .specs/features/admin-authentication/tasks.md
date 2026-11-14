@@ -143,8 +143,8 @@ Tasks T11..T15.
 **Requirement**: AUTHN-10, AUTHN-32, AUTHN-33
 
 **Done when**:
-- [ ] `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS`, `INACTIVITY_WINDOW_MS`, `EXPIRES_IN_SECONDS`, `TOKEN_MAX_AGE`, `DUMMY_PASSWORD_HASH` exportados.
-- [ ] `check-types` passa.
+- [x] `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS`, `INACTIVITY_WINDOW_MS`, `EXPIRES_IN_SECONDS`, `TOKEN_MAX_AGE`, `DUMMY_PASSWORD_HASH` exportados.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
