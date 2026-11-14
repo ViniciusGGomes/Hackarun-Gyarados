@@ -371,5 +371,5 @@ Proof: run test | ✓ limit window ends and requests are accepted again
 The feature's live state, written as it happens - a compaction gives no warning.
 
 **Settled mid-build:** none
-**Dispatched:** none
+**Dispatched:** Verifier @ 22f1427
 **Walked:** none
