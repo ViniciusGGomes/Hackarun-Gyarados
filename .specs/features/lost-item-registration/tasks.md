@@ -129,9 +129,9 @@ Tasks T7..T10.
 **Requirement**: LIR-02, LIR-03, LIR-07, LIR-09
 
 **Done when**:
-- [ ] `findActivePrivacyVersion()` e `findActiveLocation(id)`.
-- [ ] `createLostReportTx(data)`: em uma transação, acha um protocolo livre e grava `Request` (`lost_report`, `registered`) com `LostReport`, `Consent` (`purpose` `atender a solicitação`) e `RequestHistory` (`null` → `registered`, `visitor`); `lostDate` gravada como meia-noite UTC do dia enviado.
-- [ ] `check-types` passa; os testes de integração do repository vêm nos testes de rota (T7 a T10).
+- [x] `findActivePrivacyVersion()` e `findActiveLocation(id)`.
+- [x] `createLostReportTx(data)`: em uma transação, acha um protocolo livre e grava `Request` (`lost_report`, `registered`) com `LostReport`, `Consent` (`purpose` `atender a solicitação`) e `RequestHistory` (`null` → `registered`, `visitor`); `lostDate` gravada como meia-noite UTC do dia enviado.
+- [x] `check-types` passa; os testes de integração do repository vêm nos testes de rota (T7 a T10).
 
 **Tests**: none
 **Gate**: build
