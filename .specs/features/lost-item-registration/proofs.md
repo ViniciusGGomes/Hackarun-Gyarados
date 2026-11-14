@@ -1,6 +1,6 @@
 # lost-item-registration proofs
 
-**HEAD**: c03ee55
+**HEAD**: af1a901
 **Tree**: clean
 **Shell**: C:/Program Files/Git\bin\bash.exe
 **Result**: 48 pass, 0 fail
@@ -61,19 +61,19 @@
 `Run test` - exit 0
 
 ```
- ✓ src/modules/reservations/reservations.slots.test.ts > slots > current block is the one that contains the instant 1ms
- ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units use peak simultaneity in the loan window 1ms
- ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units ignore reservations that only touch the window edges 0ms
- ✓ src/modules/reservations/reservations.slots.test.ts > free units > free units never go below zero 0ms
- ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt outside hours is outside_hours 1ms
- ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt unaligned past or beyond advance is invalid 0ms
- ✓ src/modules/reservations/reservations.slots.test.ts > startAt validation > startAt on an aligned free block inside the window is ok 1ms
+ ✓ src/modules/services/services.service.test.ts > getServiceDetail > get service detail returns flow none and no equipment for an informational service 3ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is true inside the opening window of the local weekday 1ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is false before opening time 0ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is false when today is closed 0ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > opens at exactly the opening minute and closes at exactly the closing minute 0ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > is UTC-3 and not UTC-4 at 10:30 local 1ms
+ ✓ src/modules/services/services.service.test.ts > isOpenNow is computed > uses America/Araguaina (UTC-3), not the UTC date 0ms
 
  Test Files  14 passed (14)
       Tests  207 passed (207)
-   Start at  09:00:52
-   Duration  42.32s (tests 82%, import 16%, transform 1%)
+   Start at  09:02:04
+   Duration  64.50s (tests 87%, import 12%, transform 1%)
 
-    Isolate  14 workers spawned · ~259ms startup each (spawn + environment, per file)
-             at least ~3.37s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  14 workers spawned · ~303ms startup each (spawn + environment, per file)
+             at least ~3.93s faster with isolate: false — reuses workers across files instead of one per file
 ```
