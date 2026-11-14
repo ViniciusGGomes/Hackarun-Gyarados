@@ -56,7 +56,7 @@ async function seedReservation(options: { status?: Status; time?: string; pickup
       status: options.status ?? 'reserved',
       visitorName: 'Visitante Teste',
       visitorPhone: `6399${String(100000 + ++phoneSeq)}`.slice(0, 11),
-      history: { create: { fromStatus: null, toStatus: options.status ?? 'reserved', actorType: 'visitor' } },
+      history: { create: { fromStatus: null, toStatus: options.status ?? 'reserved', actorType: 'visitor', createdAt: new Date(NOW.getTime() - 60 * MINUTE) } },
       reservation: {
         create: {
           equipmentType: 'wheelchair',

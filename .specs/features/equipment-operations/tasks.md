@@ -445,6 +445,30 @@ Proof: run test | ✓ job log is written only when reservations were affected or
 **C54** - The job runner skips a run while the previous one is still going (EQP-13, Q5)
 Proof: run test | ✓ job runner skips an overlapping run
 
+**C55** - Invalid input with no token answers 401 and without the ability answers 403, never 400 (EQP-10, Auth AC 1, 2)
+Proof: run test | ✓ invalid input is answered 401 without a token and 403 without the ability
+
+**C56** - Each route is wired to its own ability: read, pickup and return (EQP-10, Auth AC 2)
+Proof: run test | ✓ each route is wired to its own ability
+
+**C57** - The agenda shows an anonymized reservation without the visitor name (EQP-03, Edge)
+Proof: run test | ✓ agenda shows an anonymized reservation without the visitor name
+
+**C58** - The agenda of a type without active equipment has zero units (EQP-01, Edge)
+Proof: run test | ✓ agenda of a type without active equipment has zero units
+
+**C59** - The agenda keeps other days and other equipment types out (EQP-01, Agenda AC 1)
+Proof: run test | ✓ agenda keeps other days and other equipment types out
+
+**C60** - The agenda flags a late pickup and a late return (EQP-03, Agenda AC 8)
+Proof: run test | ✓ agenda overdue flags are set for late pickups and returns
+
+**C61** - A malformed JSON body answers 400 and an empty object is accepted by pickup and return (EQP-07, Edge)
+Proof: run test | ✓ pickup and return with a malformed JSON body return 400 and an empty object is accepted
+
+**C62** - The agenda free units use the peak of simultaneous reservations, not their count (EQP-01, Agenda AC 3)
+Proof: run test | ✓ agenda free units use the peak and not the count of reservations
+
 ---
 
 ## Handoff

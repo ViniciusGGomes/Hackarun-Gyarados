@@ -16,7 +16,7 @@ export async function equipmentOperationsRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
     '/admin/agenda',
     {
-      preHandler: authorize('read', 'Reservation'),
+      preValidation: authorize('read', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Agenda do dia',
@@ -31,7 +31,7 @@ export async function equipmentOperationsRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/admin/reservations/:id/pickup',
     {
-      preHandler: authorize('pickup', 'Reservation'),
+      preValidation: authorize('pickup', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Registrar retirada',
@@ -47,7 +47,7 @@ export async function equipmentOperationsRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/admin/reservations/:id/return',
     {
-      preHandler: authorize('return', 'Reservation'),
+      preValidation: authorize('return', 'Reservation'),
       schema: {
         tags: ['Admin - Equipamentos'],
         summary: 'Registrar devolução',

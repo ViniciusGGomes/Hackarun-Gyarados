@@ -112,7 +112,8 @@ async function seedReservation(
       visitorPhone: options.phone ?? nextPhone(),
       visitorEmail: options.email,
       createdAt: options.createdAt,
-      history: { create: { fromStatus: null, toStatus: options.status ?? 'reserved', actorType: 'visitor' } },
+      // Explicit time: the column default is the real clock, and the tests run on a fake one.
+      history: { create: { fromStatus: null, toStatus: options.status ?? 'reserved', actorType: 'visitor', createdAt: new Date(NOW.getTime() - 60 * MINUTE) } },
       reservation: {
         create: {
           equipmentType: options.type ?? 'wheelchair',
@@ -195,6 +196,19 @@ describe('GET /api/v1/admin/agenda', () => {
     expect(slotAt(body, '2026-11-17T14:30:00.000Z')).toMatchObject({ totalUnits: 6, freeUnits: 3 }) // 11:30, still inside the 10:00-12:00 loan
     expect(slotAt(body, '2026-11-17T15:00:00.000Z')).toMatchObject({ totalUnits: 6, freeUnits: 6 }) // 12:00, the loan has ended
     expect(slotAt(body, '2026-11-17T12:30:00.000Z')).toBeUndefined() // nothing before the opening
+  })
+
+  it('agenda free units use the peak and not the count of reservations', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    await seedReservation({ time: '10:00' }) // 10:00-12:00
+    await seedReservation({ time: '12:00', status: 'picked_up' }) // 12:00-14:00: starts when the first one ends
+
+    const body = (await agenda(app, headers)).json()
+
+    // The 11:30 loan window (11:30-13:30) touches both, but they never hold a unit at the same time.
+    expect(slotAt(body, '2026-11-17T14:30:00.000Z')).toMatchObject({ totalUnits: 6, freeUnits: 5 })
+    expect(slotAt(body, '2026-11-17T13:00:00.000Z')).toMatchObject({ freeUnits: 5 })
   })
 
   it('agenda lists reservations of every status', async () => {
@@ -302,13 +316,20 @@ describe('authentication and permission', () => {
     const app = await buildApp()
     const revoked = await staff(app)
     await testPrisma.session.update({ where: { id: revoked.sessionId }, data: { revokedAt: new Date() } })
+    const expiring = app.jwt.sign({ sub: revoked.userId, sid: revoked.sessionId }, { expiresIn: '1 minute' })
     const other = fastify()
     await other.register(fastifyJwt, { secret: 'another-secret' })
     await other.ready()
     const forged = other.jwt.sign({ sub: revoked.userId, sid: revoked.sessionId })
 
+    vi.setSystemTime(new Date(NOW.getTime() + 2 * MINUTE)) // the short-lived token has expired by now
+    await testPrisma.session.updateMany({ where: { id: { not: revoked.sessionId } }, data: { lastActivityAt: new Date() } })
+    const fresh = await staff(app)
+    const expired = app.jwt.sign({ sub: fresh.userId, sid: fresh.sessionId }, { expiresIn: '-1 minute' })
+
     for (const [label, headers] of [
       ['no token', {}],
+      ['expired token', { authorization: `Bearer ${expired}` }],
       ['garbage token', { authorization: 'Bearer not-a-token' }],
       ['token signed with another secret', { authorization: `Bearer ${forged}` }],
       ['revoked session', revoked.headers],
@@ -951,5 +972,150 @@ describe('audit', () => {
     for (const hidden of ['actor', 'actorUserId', 'userId', 'internalNote', 'nota interna da equipe', 'Ana Atendente', person.userId, 'history']) {
       expect(response.body).not.toContain(hidden)
     }
+  })
+})
+
+describe('access control comes before validation, and other agenda rules', () => {
+  const BAD_INPUTS = (id: string) => [
+    ['agenda with a bad date', 'GET', '/api/v1/admin/agenda?date=bad&equipmentType=bike', undefined],
+    ['pickup with a malformed id', 'POST', '/api/v1/admin/reservations/not-a-uuid/pickup', undefined],
+    ['pickup with notes above 300', 'POST', `/api/v1/admin/reservations/${id}/pickup`, { notes: 'n'.repeat(301) }],
+    ['return with notes above 300', 'POST', `/api/v1/admin/reservations/${id}/return`, { conditionNotes: 'n'.repeat(301) }],
+  ] as const
+
+  it('invalid input is answered 401 without a token and 403 without the ability', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation()
+
+    for (const [label, method, url, payload] of BAD_INPUTS(target.id)) {
+      const noToken = await app.inject({ method, url, payload })
+
+      expect(noToken.statusCode, label).toBe(401)
+      expect(noToken.json(), label).toMatchObject({ code: 'UNAUTHORIZED' })
+    }
+
+    vi.mocked(getUserPermissions).mockReturnValue({ can: () => false } as never)
+
+    for (const [label, method, url, payload] of BAD_INPUTS(target.id)) {
+      const noAbility = await app.inject({ method, url, headers, payload })
+
+      expect(noAbility.statusCode, label).toBe(403)
+      expect(noAbility.json(), label).toMatchObject({ code: 'FORBIDDEN' })
+    }
+  })
+
+  it('each route is wired to its own ability', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const only = (action: string) => ({ can: (given: string, subject: string) => given === action && subject === 'Reservation' }) as never
+    const toPick = await seedReservation()
+    const toReturn = await seedReservation({ status: 'picked_up' })
+    const attempts = () => [
+      ['read', agenda(app, headers)],
+      ['pickup', pickup(app, toPick.id, headers)],
+      ['return', giveBack(app, toReturn.id, headers)],
+    ] as const
+
+    for (const granted of ['read', 'pickup', 'return']) {
+      vi.mocked(getUserPermissions).mockReturnValue(only(granted))
+
+      for (const [action, pending] of attempts()) {
+        const response = await pending
+
+        // A pickup or return that is allowed changes the state, so a second attempt may answer 409, never 403.
+        if (action === granted) expect(response.statusCode, `${granted} on ${action}`).not.toBe(403)
+        else expect(response.statusCode, `${granted} on ${action}`).toBe(403)
+      }
+    }
+  })
+
+  it('agenda shows an anonymized reservation without the visitor name', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const target = await seedReservation({ name: 'Maria Souza', phone: '63911110000' })
+    await testPrisma.request.update({
+      where: { id: target.id },
+      data: { anonymizedAt: NOW, visitorName: 'Maria Souza', visitorPhone: null },
+    })
+
+    const response = await agenda(app, headers)
+    const item = slotAt(response.json(), '2026-11-17T13:00:00.000Z').reservations[0]
+
+    expect(item.id).toBe(target.id)
+    expect(item.visitorName).toBeNull()
+    expect(response.body).not.toContain('Maria Souza')
+  })
+
+  it('agenda of a type without active equipment has zero units', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    await testPrisma.equipment.updateMany({ where: { type: 'wheelchair' }, data: { active: false } })
+    await seedReservation()
+
+    const body = (await agenda(app, headers)).json()
+
+    expect(body.slots).toHaveLength(21)
+    expect(body.slots.every((slot: { totalUnits: number; freeUnits: number }) => slot.totalUnits === 0 && slot.freeUnits === 0)).toBe(true)
+    expect(slotAt(body, '2026-11-17T13:00:00.000Z').reservations).toHaveLength(1)
+  })
+
+  it('agenda keeps other days and other equipment types out', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const mine = await seedReservation()
+    await seedReservation({ date: '2026-11-16' })
+    await seedReservation({ date: '2026-11-18' })
+    const stroller = await seedReservation({ type: 'stroller' })
+
+    const wheelchair = (await agenda(app, headers)).json()
+    const strollers = (await agenda(app, headers, `date=${TUESDAY}&equipmentType=stroller`)).json()
+    const idsOf = (body: { slots: { reservations: { id: string }[] }[] }) => body.slots.flatMap((slot) => slot.reservations.map((item) => item.id))
+
+    expect(idsOf(wheelchair)).toEqual([mine.id])
+    expect(idsOf(strollers)).toEqual([stroller.id])
+    expect(strollers.equipmentType).toBe('stroller')
+    expect(slotAt(strollers, '2026-11-17T13:00:00.000Z').totalUnits).toBe(7) // 5 simple + 2 double strollers
+  })
+
+  it('agenda overdue flags are set for late pickups and returns', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const latePickup = await seedReservation({ time: '09:00' }) // deadline 09:15, it is 10:05
+    const lateReturn = await seedReservation({ time: '08:00', status: 'picked_up' }) // loan ended at 10:00
+    const onTime = await seedReservation({ time: '10:00' }) // deadline 10:15
+
+    const body = (await agenda(app, headers)).json()
+    const flags = (id: string) => {
+      const item = body.slots.flatMap((slot: { reservations: { id: string }[] }) => slot.reservations).find((entry: { id: string }) => entry.id === id)
+
+      return [item.pickupOverdue, item.returnOverdue]
+    }
+
+    expect(flags(latePickup.id)).toEqual([true, false])
+    expect(flags(lateReturn.id)).toEqual([false, true])
+    expect(flags(onTime.id)).toEqual([false, false])
+  })
+
+  it('pickup and return with a malformed JSON body return 400 and an empty object is accepted', async () => {
+    const app = await buildApp()
+    const { headers } = await staff(app)
+    const json = { ...headers, 'content-type': 'application/json' }
+    const toPick = await seedReservation()
+    const toReturn = await seedReservation({ status: 'picked_up' })
+
+    const bad = [
+      await app.inject({ method: 'POST', url: `/api/v1/admin/reservations/${toPick.id}/pickup`, headers: json, payload: '{"notes": ' }),
+      await app.inject({ method: 'POST', url: `/api/v1/admin/reservations/${toReturn.id}/return`, headers: json, payload: '{"conditionNotes": ' }),
+    ]
+
+    for (const response of bad) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect((await stored(toPick.id)).status).toBe('reserved')
+    expect((await stored(toReturn.id)).status).toBe('picked_up')
+    expect((await pickup(app, toPick.id, headers, {})).statusCode).toBe(200)
+    expect((await giveBack(app, toReturn.id, headers, {})).statusCode).toBe(200)
   })
 })
