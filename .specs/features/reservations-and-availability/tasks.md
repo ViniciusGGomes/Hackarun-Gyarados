@@ -401,9 +401,9 @@ Tasks T18..T21.
 **Requirement**: RSV-04, RSV-05, RSV-06, RSV-10
 
 **Done when**:
-- [ ] Reserva válida (201 com `Request`, `Reservation`, `Consent` e histórico), `endAt`/`pickupDeadline`, modo `now`, dados inválidos, consentimento, fora do período, horário ocupado, limite por telefone, nova reserva após cancelada/devolvida, configurações do Gestor, local inexistente e campos do outro tipo.
-- [ ] Falha no meio da transação (gatilho temporário no banco de teste) não deixa `Request` órfão.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Reserva válida (201 com `Request`, `Reservation`, `Consent` e histórico), `endAt`/`pickupDeadline`, modo `now`, dados inválidos, consentimento, fora do período, horário ocupado, limite por telefone, nova reserva após cancelada/devolvida, configurações do Gestor, local inexistente e campos do outro tipo.
+- [x] Falha no meio da transação (gatilho temporário no banco de teste) não deixa `Request` órfão.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

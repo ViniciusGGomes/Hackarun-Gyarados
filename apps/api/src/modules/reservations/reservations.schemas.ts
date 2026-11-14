@@ -49,7 +49,7 @@ export const CreateReservationSchema = z
     strollerKind: z.enum(['single', 'double']).optional(),
     notes: z.string().max(200).optional(),
     consent: z.object({
-      accepted: z.literal(true),
+      accepted: z.boolean(), // `false` is answered as CONSENT_REQUIRED by the service
       privacyNoticeVersion: z.string().min(1),
     }),
   })

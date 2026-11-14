@@ -234,3 +234,306 @@ describe('GET /api/v1/equipment/:type/availability', () => {
     expect(Object.keys(response.json().slots[0]).sort()).toEqual(['available', 'availableUnits', 'end', 'start'])
   })
 })
+
+// ---------------------------------------------------------------------------- create reservation
+
+const at = (date: string, time: string) => localDateToUtc(date, time)
+
+function body(overrides: Record<string, unknown> = {}) {
+  return {
+    equipmentType: 'wheelchair',
+    mode: 'scheduled',
+    startAt: at(TUESDAY, '10:00').toISOString(),
+    name: 'Maria Souza',
+    phone: '63999998888',
+    consent: { accepted: true, privacyNoticeVersion: '1.0' },
+    ...overrides,
+  }
+}
+
+function reserve(app: App, overrides: Record<string, unknown> = {}) {
+  return app.inject({ method: 'POST', url: '/api/v1/reservations', payload: body(overrides) })
+}
+
+async function counts() {
+  const [requests, reservations, consents, history] = await Promise.all([
+    testPrisma.request.count(),
+    testPrisma.reservation.count(),
+    testPrisma.consent.count(),
+    testPrisma.requestHistory.count(),
+  ])
+
+  return { requests, reservations, consents, history }
+}
+
+const NOTHING_STORED = { requests: 0, reservations: 0, consents: 0, history: 0 }
+
+describe('POST /api/v1/reservations', () => {
+  it('reservation valid request returns 201 and stores request reservation consent and history', async () => {
+    const app = await buildApp()
+
+    const response = await reserve(app, {
+      email: 'maria@email.com',
+      currentLocationId: locations.familyLocationId,
+      forWhom: 'other',
+      size: 'child',
+      notes: 'Estou na entrada principal',
+    })
+    const result = response.json()
+
+    expect(response.statusCode).toBe(201)
+    expect(result.protocol).toMatch(/^CAP-[A-Z2-9]{4}-[A-Z2-9]{4}$/)
+    expect(result).toMatchObject({
+      status: 'reserved',
+      trackingPath: `/acompanhar/${result.protocol}`,
+      equipmentType: 'wheelchair',
+      startAt: '2026-11-17T13:00:00.000Z',
+      endAt: '2026-11-17T15:00:00.000Z',
+      pickupDeadline: '2026-11-17T13:15:00.000Z',
+      pickupLocation: {
+        id: locations.sacLocationId,
+        name: 'SAC / Espaço do Cliente',
+        floor: 'Térreo',
+        type: 'service',
+        active: true,
+      },
+    })
+    expect(Object.keys(result).sort()).toEqual([
+      'createdAt',
+      'endAt',
+      'equipmentType',
+      'pickupDeadline',
+      'pickupLocation',
+      'protocol',
+      'startAt',
+      'status',
+      'trackingPath',
+    ])
+
+    const stored = await testPrisma.request.findUniqueOrThrow({
+      where: { protocol: result.protocol },
+      include: { reservation: true, consents: true, history: true },
+    })
+    expect(stored).toMatchObject({
+      type: 'reservation',
+      status: 'reserved',
+      visitorName: 'Maria Souza',
+      visitorPhone: '63999998888',
+      visitorEmail: 'maria@email.com',
+    })
+    expect(stored.reservation).toMatchObject({
+      equipmentType: 'wheelchair',
+      forWhom: 'other',
+      size: 'child',
+      currentLocationId: locations.familyLocationId,
+      notes: 'Estou na entrada principal',
+    })
+    expect(stored.consents).toHaveLength(1)
+    expect(stored.consents[0]).toMatchObject({ privacyNoticeVersion: '1.0', purpose: 'atender a solicitação' })
+    expect(stored.history).toHaveLength(1)
+    expect(stored.history[0]).toMatchObject({ fromStatus: null, toStatus: 'reserved', actorType: 'visitor' })
+  })
+
+  it('reservation computes endAt and pickupDeadline from the settings', async () => {
+    const app = await buildApp()
+    await testPrisma.reservationSettings.update({
+      where: { id: 1 },
+      data: { loanDurationMinutes: 90, pickupToleranceMinutes: 20 },
+    })
+
+    const result = (await reserve(app)).json()
+
+    expect(result.endAt).toBe('2026-11-17T14:30:00.000Z') // 10:00 + 90 min
+    expect(result.pickupDeadline).toBe('2026-11-17T13:20:00.000Z') // 10:00 + 20 min
+  })
+
+  it('reservation now mode uses the current block', async () => {
+    const app = await buildApp()
+    vi.setSystemTime(new Date('2026-11-17T14:10:00Z')) // Tuesday 11:10 local
+
+    const response = await reserve(app, { mode: 'now', startAt: undefined })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toMatchObject({
+      startAt: '2026-11-17T14:00:00.000Z', // block 11:00-11:30
+      endAt: '2026-11-17T16:00:00.000Z',
+      pickupDeadline: '2026-11-17T14:25:00.000Z', // now + 15 min
+    })
+
+    vi.setSystemTime(new Date('2026-11-17T12:00:00Z')) // 09:00, before opening
+    const early = await reserve(app, { mode: 'now', startAt: undefined, phone: '63977776666' })
+
+    expect(early.statusCode).toBe(400)
+    expect(early.json()).toMatchObject({ code: 'OUTSIDE_OPENING_HOURS' })
+  })
+
+  it('reservation invalid data returns 400 and stores nothing', async () => {
+    const invalid: Record<string, unknown>[] = [
+      { name: undefined },
+      { name: '   ' },
+      { name: 'x'.repeat(121) },
+      { phone: 'abc' },
+      { phone: '639999' },
+      { email: 'not-an-email' },
+      { notes: 'n'.repeat(201) },
+      { mode: 'scheduled', startAt: undefined },
+      { mode: 'later' },
+      { consent: undefined },
+      { startAt: 'tomorrow' },
+    ]
+
+    // A new app starts a new rate-limit window, so no case is cut off by the limit of 10 per minute.
+    for (const overrides of invalid) {
+      const response = await reserve(await buildApp(), overrides)
+
+      expect(response.statusCode, JSON.stringify(overrides)).toBe(400)
+      expect(response.json(), JSON.stringify(overrides)).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('reservation without valid consent returns 400 CONSENT_REQUIRED', async () => {
+    const app = await buildApp()
+
+    const refused = await reserve(app, { consent: { accepted: false, privacyNoticeVersion: '1.0' } })
+    const oldVersion = await reserve(app, { consent: { accepted: true, privacyNoticeVersion: '0.9' } })
+    await testPrisma.privacyNotice.updateMany({ data: { active: false } })
+    const noActiveNotice = await reserve(app)
+
+    for (const response of [refused, oldVersion, noActiveNotice]) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'CONSENT_REQUIRED' })
+    }
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('reservation outside the allowed period is rejected', async () => {
+    const app = await buildApp()
+    const expectRejected = async (startAt: Date, code: string) => {
+      const response = await reserve(app, { startAt: startAt.toISOString() })
+
+      expect(response.statusCode, startAt.toISOString()).toBe(400)
+      expect(response.json(), startAt.toISOString()).toMatchObject({ code })
+    }
+
+    await expectRejected(at(TUESDAY, '09:30'), 'OUTSIDE_OPENING_HOURS') // before opening
+    await expectRejected(at(TUESDAY, '20:30'), 'OUTSIDE_OPENING_HOURS') // the 2 h loan would end after 22:00
+    await testPrisma.openingHour.update({ where: { weekday: 3 }, data: { closed: true } })
+    await expectRejected(at('2026-11-18', '10:00'), 'OUTSIDE_OPENING_HOURS') // closed day
+    await expectRejected(at(TUESDAY, '10:15'), 'VALIDATION_ERROR') // not the start of a block
+    await expectRejected(at('2026-11-24', '10:00'), 'VALIDATION_ERROR') // today + 8 days
+    vi.setSystemTime(new Date('2026-11-17T14:10:00Z')) // Tuesday 11:10
+    await expectRejected(at(TUESDAY, '10:00'), 'VALIDATION_ERROR') // already past
+
+    expect(await counts()).toEqual(NOTHING_STORED)
+  })
+
+  it('reservation on a taken slot returns 409 SLOT_UNAVAILABLE', async () => {
+    const app = await buildApp()
+    for (let i = 0; i < 6; i++) await seedReservation({ time: '10:00' })
+
+    const same = await reserve(app)
+    const overlapping = await reserve(app, { startAt: at(TUESDAY, '11:00').toISOString() }) // the loan would run into 10:00-12:00
+
+    for (const response of [same, overlapping]) {
+      expect(response.statusCode).toBe(409)
+      expect(response.json()).toMatchObject({ statusCode: 409, code: 'SLOT_UNAVAILABLE' })
+    }
+    expect((await counts()).requests).toBe(6)
+  })
+
+  it('reservation second active reservation of the phone returns 409 ACTIVE_RESERVATION_LIMIT', async () => {
+    const app = await buildApp()
+
+    expect((await reserve(app)).statusCode).toBe(201)
+    const second = await reserve(app, { startAt: at(TUESDAY, '14:00').toISOString() })
+    const otherType = await reserve(app, { equipmentType: 'stroller' })
+    const otherPhone = await reserve(app, { phone: '63977776666' })
+
+    expect(second.statusCode).toBe(409)
+    expect(second.json()).toMatchObject({ statusCode: 409, code: 'ACTIVE_RESERVATION_LIMIT' })
+    expect(otherType.statusCode).toBe(201)
+    expect(otherPhone.statusCode).toBe(201)
+    expect((await counts()).requests).toBe(3)
+  })
+
+  it('reservation allowed again after the previous one is cancelled or returned', async () => {
+    const app = await buildApp()
+    const first = (await reserve(app)).json()
+    await testPrisma.request.update({ where: { protocol: first.protocol }, data: { status: 'cancelled' } })
+
+    const second = await reserve(app, { startAt: at(TUESDAY, '14:00').toISOString() })
+    expect(second.statusCode).toBe(201)
+    await testPrisma.request.update({ where: { protocol: second.json().protocol }, data: { status: 'returned' } })
+
+    expect((await reserve(app, { startAt: at(TUESDAY, '17:00').toISOString() })).statusCode).toBe(201)
+  })
+
+  it('settings changes apply to new bookings and keep stored reservations', async () => {
+    const app = await buildApp()
+    const first = (await reserve(app)).json()
+
+    await testPrisma.reservationSettings.update({
+      where: { id: 1 },
+      data: { loanDurationMinutes: 60, slotMinutes: 60, maxActiveReservationsPerPhone: 2 },
+    })
+    await testPrisma.openingHour.update({ where: { weekday: 2 }, data: { closeTime: '18:00' } })
+
+    const stored = await testPrisma.reservation.findFirstOrThrow({ where: { request: { protocol: first.protocol } } })
+    expect(stored.endAt.toISOString()).toBe('2026-11-17T15:00:00.000Z') // still 10:00-12:00
+    const { slots, slotMinutes, loanDurationMinutes } = (await availability(app, 'wheelchair', TUESDAY)).json()
+    expect({ slotMinutes, loanDurationMinutes }).toEqual({ slotMinutes: 60, loanDurationMinutes: 60 })
+    expect(slots.at(-1).start).toBe('2026-11-17T20:00:00.000Z') // 17:00: hourly blocks, the 1 h loan ends at 18:00
+
+    const second = await reserve(app, { startAt: at(TUESDAY, '14:00').toISOString() })
+    const third = await reserve(app, { startAt: at(TUESDAY, '16:00').toISOString() })
+
+    expect(second.statusCode).toBe(201) // the limit per phone is now 2
+    expect(second.json().endAt).toBe('2026-11-17T18:00:00.000Z') // 14:00 + 60 min
+    expect(third.statusCode).toBe(409)
+    expect(third.json()).toMatchObject({ code: 'ACTIVE_RESERVATION_LIMIT' })
+  })
+
+  it('reservation failure leaves no orphan request', async () => {
+    const app = await buildApp()
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await testPrisma.$executeRawUnsafe(
+      "CREATE OR REPLACE FUNCTION fail_consent() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$ LANGUAGE plpgsql",
+    )
+    await testPrisma.$executeRawUnsafe(
+      'CREATE TRIGGER fail_consent_trigger BEFORE INSERT ON consents FOR EACH ROW EXECUTE FUNCTION fail_consent()',
+    )
+
+    try {
+      const response = await reserve(app)
+
+      expect(response.statusCode).toBe(500)
+      expect(response.body).not.toContain('forced failure')
+      expect(await counts()).toEqual(NOTHING_STORED)
+    } finally {
+      await testPrisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_consent_trigger ON consents')
+      await testPrisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS fail_consent()')
+    }
+  })
+
+  it('reservation with an unknown location or fields of the other type returns 400', async () => {
+    const app = await buildApp()
+    await testPrisma.location.update({ where: { id: locations.familyLocationId }, data: { active: false } })
+
+    const responses = [
+      await reserve(app, { currentLocationId: '00000000-0000-4000-8000-000000000999' }),
+      await reserve(app, { currentLocationId: locations.familyLocationId }), // inactive
+      await reserve(app, { equipmentType: 'stroller', forWhom: 'self' }),
+      await reserve(app, { equipmentType: 'stroller', size: 'adult' }),
+      await reserve(app, { equipmentType: 'wheelchair', strollerKind: 'double' }),
+    ]
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+    }
+    expect(await counts()).toEqual(NOTHING_STORED)
+    expect((await reserve(app, { equipmentType: 'stroller', strollerKind: 'double' })).statusCode).toBe(201)
+  })
+})

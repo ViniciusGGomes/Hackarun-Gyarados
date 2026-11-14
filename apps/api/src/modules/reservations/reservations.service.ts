@@ -105,7 +105,7 @@ export async function createReservation(input: CreateReservationInput, now: Date
   const settings = await loadSettings()
 
   const activeVersion = await repository.findActivePrivacyVersion()
-  if (!activeVersion || input.consent.privacyNoticeVersion !== activeVersion) {
+  if (!input.consent.accepted || !activeVersion || input.consent.privacyNoticeVersion !== activeVersion) {
     throw new AppError(400, 'CONSENT_REQUIRED', 'Accept the current privacy notice to continue')
   }
 
