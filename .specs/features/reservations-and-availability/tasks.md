@@ -438,8 +438,8 @@ Tasks T18..T21.
 **Requirement**: RSV-08, RSV-10
 
 **Done when**:
-- [ ] Cancelamento válido (200, status, `completedAt`, histórico), liberação da unidade, 404 idêntico (protocolo, telefone, anonimizada), 409 para `picked_up`/`returned`/`no_show`/`cancelled` e para outro tipo de solicitação, 400 para dados inválidos, cancelamento e retirada simultâneos e visão pública sem dados de terceiros.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] Cancelamento válido (200, status, `completedAt`, histórico), liberação da unidade, 404 idêntico (protocolo, telefone, anonimizada), 409 para `picked_up`/`returned`/`no_show`/`cancelled` e para outro tipo de solicitação, 400 para dados inválidos, cancelamento e retirada simultâneos e visão pública sem dados de terceiros.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full

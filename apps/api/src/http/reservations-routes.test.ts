@@ -640,3 +640,168 @@ describe('limits and concurrency', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------- cancel
+
+const PHONE = '63999998888'
+
+function cancel(app: App, protocol: string, payload: Record<string, unknown> = { phone: PHONE }) {
+  return app.inject({ method: 'POST', url: `/api/v1/tracking/${protocol}/cancel`, payload })
+}
+
+async function reserveAndGetProtocol(app: App, overrides: Record<string, unknown> = {}) {
+  const response = await reserve(app, overrides)
+
+  expect(response.statusCode).toBe(201)
+
+  return response.json().protocol as string
+}
+
+describe('POST /api/v1/tracking/:protocol/cancel', () => {
+  it('cancel valid reservation returns 200 and records history', async () => {
+    const app = await buildApp()
+    const protocol = await reserveAndGetProtocol(app)
+
+    const response = await cancel(app, protocol, { phone: PHONE, reason: 'Mudei de ideia' })
+    const view = response.json()
+
+    expect(response.statusCode).toBe(200)
+    expect(view).toMatchObject({
+      protocol,
+      type: 'reservation',
+      publicStatus: 'cancelled',
+      summary: { equipmentType: 'wheelchair', startAt: '2026-11-17T13:00:00.000Z', endAt: '2026-11-17T15:00:00.000Z' },
+      messages: [],
+      canCancel: false,
+      canReply: false,
+    })
+    expect(view.timeline.map((entry: { status: string }) => entry.status)).toEqual(['reserved', 'cancelled'])
+
+    const stored = await testPrisma.request.findUniqueOrThrow({ where: { protocol }, include: { history: true } })
+    expect(stored.status).toBe('cancelled')
+    expect(stored.completedAt?.toISOString()).toBe(NOW.toISOString())
+    const last = stored.history.find((entry) => entry.toStatus === 'cancelled')
+    expect(last).toMatchObject({ fromStatus: 'reserved', actorType: 'visitor', internalNote: 'Mudei de ideia' })
+  })
+
+  it('cancel frees the unit for availability and a new booking', async () => {
+    const app = await buildApp()
+    await limitUnits('wheelchair', 1)
+    const protocol = await reserveAndGetProtocol(app, { phone: '63911110001' })
+
+    expect((await availability(app, 'wheelchair', TUESDAY)).json().slots[0].availableUnits).toBe(0)
+    expect((await reserve(app, { phone: '63911110002' })).statusCode).toBe(409)
+
+    expect((await cancel(app, protocol, { phone: '63911110001' })).statusCode).toBe(200)
+
+    expect((await availability(app, 'wheelchair', TUESDAY)).json().slots[0].availableUnits).toBe(1)
+    expect((await reserve(app, { phone: '63911110002' })).statusCode).toBe(201)
+  })
+
+  it('cancel unknown protocol wrong phone or anonymized returns the same 404', async () => {
+    const app = await buildApp()
+    const protocol = await reserveAndGetProtocol(app)
+    const anonymized = await reserveAndGetProtocol(app, { phone: '63977776666' })
+    await testPrisma.request.update({ where: { protocol: anonymized }, data: { anonymizedAt: NOW, visitorPhone: null } })
+
+    const responses = [
+      await cancel(app, 'CAP-ZZZZ-9999'),
+      await cancel(app, 'not-a-protocol'),
+      await cancel(app, protocol, { phone: '63900000000' }),
+      await cancel(app, anonymized, { phone: '63977776666' }),
+    ]
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    }
+    expect(new Set(responses.map((response) => response.body)).size).toBe(1) // identical bodies
+    expect((await testPrisma.request.findUniqueOrThrow({ where: { protocol } })).status).toBe('reserved')
+  })
+
+  it('cancel in a final or picked up status returns 409 REQUEST_NOT_CANCELLABLE', async () => {
+    const app = await buildApp()
+    const protocol = await reserveAndGetProtocol(app)
+
+    for (const status of ['picked_up', 'returned', 'no_show', 'cancelled'] as const) {
+      await testPrisma.request.update({ where: { protocol }, data: { status } })
+
+      const response = await cancel(app, protocol)
+
+      expect(response.statusCode, status).toBe(409)
+      expect(response.json(), status).toMatchObject({ statusCode: 409, code: 'REQUEST_NOT_CANCELLABLE' })
+      const stored = await testPrisma.request.findUniqueOrThrow({ where: { protocol }, include: { history: true } })
+      expect(stored.status, status).toBe(status)
+      expect(stored.history, status).toHaveLength(1) // only the creation entry
+    }
+  })
+
+  it('cancel invalid phone or reason returns 400', async () => {
+    const app = await buildApp()
+    const protocol = await reserveAndGetProtocol(app)
+
+    const responses = [
+      await cancel(app, protocol, { phone: 'abc' }),
+      await cancel(app, protocol, {}),
+      await cancel(app, protocol, { phone: PHONE, reason: 'r'.repeat(201) }),
+    ]
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+    }
+    expect((await testPrisma.request.findUniqueOrThrow({ where: { protocol } })).status).toBe('reserved')
+  })
+
+  it('cancel and pickup at the same time apply one transition', async () => {
+    const app = await buildApp()
+
+    for (let round = 0; round < 4; round++) {
+      const phone = `6395555000${round}`
+      const protocol = await reserveAndGetProtocol(app, { phone, startAt: at(TUESDAY, `1${round}:00`).toISOString() })
+      const request = await testPrisma.request.findUniqueOrThrow({ where: { protocol } })
+
+      // The pickup is what the admin route will do: a conditional update on `reserved`.
+      const [cancelled, pickup] = await Promise.all([
+        cancel(app, protocol, { phone }),
+        testPrisma.request.updateMany({ where: { id: request.id, status: 'reserved' }, data: { status: 'picked_up' } }),
+      ])
+      const final = (await testPrisma.request.findUniqueOrThrow({ where: { protocol } })).status
+
+      if (cancelled.statusCode === 200) {
+        expect({ final, pickedUp: pickup.count }).toEqual({ final: 'cancelled', pickedUp: 0 })
+      } else {
+        expect(cancelled.statusCode).toBe(409)
+        expect({ final, pickedUp: pickup.count }).toEqual({ final: 'picked_up', pickedUp: 1 })
+      }
+    }
+  })
+
+  it('cancel of a request that is not a reservation returns 409', async () => {
+    const app = await buildApp()
+    const lost = await testPrisma.request.create({
+      data: { protocol: 'CAP-LOST-2222', type: 'lost_report', status: 'registered', visitorName: 'Visitante', visitorPhone: PHONE },
+    })
+
+    const response = await cancel(app, lost.protocol)
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json()).toMatchObject({ code: 'REQUEST_NOT_CANCELLABLE' })
+    expect((await testPrisma.request.findUniqueOrThrow({ where: { id: lost.id } })).status).toBe('registered')
+  })
+
+  it('cancel view exposes only public fields without a token', async () => {
+    const app = await buildApp()
+    const protocol = await reserveAndGetProtocol(app, { email: 'maria@email.com' })
+
+    const response = await cancel(app, protocol) // no Authorization header
+
+    expect(response.statusCode).toBe(200)
+    expect(Object.keys(response.json()).sort()).toEqual(
+      ['canCancel', 'canReply', 'createdAt', 'messages', 'protocol', 'publicStatus', 'summary', 'timeline', 'type'],
+    )
+    for (const secret of [PHONE, 'maria@email.com', 'Maria Souza']) {
+      expect(response.body).not.toContain(secret)
+    }
+  })
+})
