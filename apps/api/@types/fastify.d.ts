@@ -5,6 +5,7 @@ import 'fastify'
 declare module 'fastify' {
   export interface FastifyRequest {
     getCurrentUserId(): Promise<string>
+    getCurrentSessionId(): Promise<string>
     getCurrentUser(): Promise<User>
     getAbility(): Promise<AppAbility>
   }

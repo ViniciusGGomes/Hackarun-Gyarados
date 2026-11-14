@@ -11,6 +11,15 @@ vi.mock('../../lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    session: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        userId: where.id.replace('session-', ''),
+        lastActivityAt: new Date(),
+        revokedAt: null,
+      })),
+      update: vi.fn(async () => ({})),
+    },
   },
 }))
 
@@ -61,7 +70,10 @@ describe('auth middleware', () => {
   it('inactive user is denied', async () => {
     const app = await buildApp()
 
-    const token = app.jwt.sign({ sub: '00000000-0000-0000-0000-000000000001' })
+    const token = app.jwt.sign({
+      sub: '00000000-0000-0000-0000-000000000001',
+      sid: 'session-00000000-0000-0000-0000-000000000001',
+    })
 
     findUniqueMock.mockResolvedValue({
       id: '00000000-0000-0000-0000-000000000001',
