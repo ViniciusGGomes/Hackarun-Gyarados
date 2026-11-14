@@ -277,10 +277,10 @@ Tasks T18..T21.
 **Requirement**: RSV-04, RSV-05, RSV-06, RSV-07
 
 **Done when**:
-- [ ] `createReservation(input, now)`: consentimento (`400 CONSENT_REQUIRED`), local atual ativo (`400 VALIDATION_ERROR`), `startAt` (`400 OUTSIDE_OPENING_HOURS` / `VALIDATION_ERROR`), modo `now` com bloco atual e `pickupDeadline` = agora + tolerância.
-- [ ] `limit` → `409 ACTIVE_RESERVATION_LIMIT`; `slot_unavailable` → `409 SLOT_UNAVAILABLE`.
-- [ ] `endAt` = `startAt` + empréstimo e `pickupDeadline` = `startAt` + tolerância (modo `scheduled`); devolve `ReservationCreated` com `pickupLocation` e `trackingPath`.
-- [ ] `check-types` passa.
+- [x] `createReservation(input, now)`: consentimento (`400 CONSENT_REQUIRED`), local atual ativo (`400 VALIDATION_ERROR`), `startAt` (`400 OUTSIDE_OPENING_HOURS` / `VALIDATION_ERROR`), modo `now` com bloco atual e `pickupDeadline` = agora + tolerância.
+- [x] `limit` → `409 ACTIVE_RESERVATION_LIMIT`; `slot_unavailable` → `409 SLOT_UNAVAILABLE`.
+- [x] `endAt` = `startAt` + empréstimo e `pickupDeadline` = `startAt` + tolerância (modo `scheduled`); devolve `ReservationCreated` com `pickupLocation` e `trackingPath`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
