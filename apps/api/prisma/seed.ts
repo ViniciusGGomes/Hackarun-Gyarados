@@ -306,7 +306,7 @@ async function addFound(o: FoundOpts) {
   const by = o.by ?? pick(STAFF)
   const created = await prisma.foundItem.create({
     data: {
-      code: `TMP-${randomUUID()}`, // ajustado abaixo com o seq gerado
+      code: `TMP-${randomUUID().slice(0, 15)}`, // ajustado abaixo com o seq gerado
       status: o.status ?? 'stored',
       category: o.category,
       description: o.description,
