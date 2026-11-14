@@ -66,7 +66,7 @@ export function setupTestDb() {
 /** Empties the operational tables and seeds the minimum the reservation flows need. */
 export async function resetTestDb() {
   await testPrisma.$executeRawUnsafe(
-    'TRUNCATE TABLE requests, users, sessions, unmet_demands, equipment, opening_hours, reservation_settings, privacy_notices, locations RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE requests, users, sessions, job_logs, unmet_demands, equipment, opening_hours, reservation_settings, privacy_notices, locations RESTART IDENTITY CASCADE',
   )
 
   const sac = await testPrisma.location.create({ data: { name: 'SAC / Espaço do Cliente', floor: 'Térreo', type: 'service' } })

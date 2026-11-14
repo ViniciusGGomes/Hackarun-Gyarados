@@ -270,9 +270,9 @@ Tasks T8..T12.
 **Requirement**: EQP-12, EQP-13
 
 **Done when**:
-- [ ] `runMarkNoShow(now)` grava `job_logs` só se afetou reservas ou falhou; `startNoShowJob()` roda a cada 60 s com `unref()` e pula a execução se a anterior ainda não terminou; `server.ts` o inicia após o `listen`.
-- [ ] Teste `apps/api/src/jobs/mark-no-show.test.ts` com os nomes dos checks C39, C42 a C49, C53 e C54.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run` e `pnpm --filter @saas/api run check-types`.
+- [x] `runMarkNoShow(now)` grava `job_logs` só se afetou reservas ou falhou; `startNoShowJob()` roda a cada 60 s com `unref()` e pula a execução se a anterior ainda não terminou; `server.ts` o inicia após o `listen`.
+- [x] Teste `apps/api/src/jobs/mark-no-show.test.ts` com os nomes dos checks C39, C42 a C49, C53 e C54.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run` e `pnpm --filter @saas/api run check-types`.
 
 **Tests**: integration
 **Gate**: full

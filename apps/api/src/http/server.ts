@@ -11,6 +11,7 @@ import {
   ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 
+import { startNoShowJob } from '../jobs/mark-no-show'
 import { errorHandler } from './error-handler'
 import { auth } from './middlewares/auth'
 import { routes } from './routes'
@@ -55,4 +56,5 @@ app.register(routes, { prefix: '/api/v1' })
 
 app.listen({ port: env.SERVER_PORT }).then(() => {
   console.log('HTTP server is running')
+  startNoShowJob()
 })
