@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is([data-theme='dark'] *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  /* Paleta Capim Dourado (tokens do Figma) */
+  --color-ink: var(--ink);
+  --color-sub: var(--sub);
+  --color-line: var(--line);
+  --color-page: var(--page);
+  --color-g50: var(--g50);
+  --color-g300: var(--g300);
+  --color-g500: var(--g500);
+  --color-g700: var(--g700);
+  --color-brown: var(--brown);
+  --color-menu: var(--menu);
+  --color-highlight: var(--highlight);
+  --color-strip: var(--strip);
+
+  /* Tokens shadcn */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Claro (padrão do Figma) */
+:root {
+  color-scheme: light;
+
+  --ink: #2a1f05;
+  --line: #e9dfc2;
+  --g50: #fbf3d6;
+  --g300: #ebc85a;
+  --g500: #d4a62a;
+  --g700: #a87c10;
+  --brown: #3a2a06;
+  --menu: #7b5129;
+  --highlight: #f6d77a;
+  --strip: #0e4c7f;
+  --page: #fffbf0;
+  --card: #ffffff;
+  --text: #2a1f05;
+  --sub: #7a6a45;
+
+  --background: var(--page);
+  --foreground: var(--text);
+  --card-foreground: var(--text);
+  --popover: var(--card);
+  --popover-foreground: var(--text);
+  --primary: var(--brown);
+  --primary-foreground: var(--highlight);
+  --secondary: var(--g50);
+  --secondary-foreground: var(--ink);
+  --muted: var(--g50);
+  --muted-foreground: var(--sub);
+  --accent: var(--g50);
+  --accent-foreground: var(--ink);
+  --destructive: #c0392b;
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--g500);
+  --chart-1: #f0cd5e;
+  --chart-2: #d4a62a;
+  --chart-3: #a87c10;
+  --chart-4: #7b5129;
+  --chart-5: #3a2a06;
+  --radius: 0.375rem;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--brown);
+  --sidebar-primary-foreground: var(--highlight);
+  --sidebar-accent: var(--g50);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--g500);
+}
+
+/* Escuro automático (prefers-color-scheme), como nos frames do Figma */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --page: #1d1708;
+    --card: #2a2110;
+    --text: #f6e9c0;
+    --sub: #cdbb8a;
+    --line: #4a3c1c;
+    --g50: #3a2e12;
+  }
+}
+
+/* Escuro forçado */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --page: #1d1708;
+  --card: #2a2110;
+  --text: #f6e9c0;
+  --sub: #cdbb8a;
+  --line: #4a3c1c;
+  --g50: #3a2e12;
+}
+
+@utility bg-gold {
+  background-image: linear-gradient(135deg, #f0cd5e, #c9961a);
+}
+
+@utility bg-gold-150 {
+  background-image: linear-gradient(150deg, #f0cd5e, #c9961a);
+}
+
+@utility bg-placeholder {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #f3de95 0 14px,
+    #ebcb6b 14px 28px
+  );
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  html {
+    /* O Figma usa line-height padrão do navegador; o Tailwind define 1.5. */
+    line-height: normal;
+  }
+  body {
+    @apply bg-background text-foreground;
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+  }
+}

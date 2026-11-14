@@ -1,0 +1,16 @@
+{
+  "name": "@saas/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "library.json",
+    "node.json",
+    "nextjs.json"
+  ],
+  "exports": {
+    "./node.json": "./node.json",
+    "./nextjs.json": "./nextjs.json",
+    "./library.json": "./library.json"
+  }
+}

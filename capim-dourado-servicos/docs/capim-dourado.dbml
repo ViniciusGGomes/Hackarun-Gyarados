@@ -1,0 +1,514 @@
+Project capim_dourado_servicos {
+  database_type: 'PostgreSQL'
+  Note: '''
+  Modelo de dados dos serviços do Capim Dourado Shopping.
+  Cobre: reserva de cadeira de rodas e carrinho de bebê, achados e perdidos, SAC,
+  acompanhamento por protocolo, área administrativa, configurações e indicadores.
+
+  Convenções
+  - Chaves primárias uuid (gen_random_uuid()), exceto settings (singleton) e opening_hours.
+  - Todas as datas em timestamptz (UTC). O shopping opera em America/Araguaina.
+  - Toda solicitação do visitante é uma linha em `requests` (núcleo comum) + uma linha
+    na tabela do tipo (`reservations`, `lost_reports` ou `sac_messages`).
+  - Status de todos os tipos ficam no enum `request_status`; a validade por tipo é
+    regra de negócio da API (ver tabela de transições no openapi.yaml).
+  - Dados pessoais do visitante ficam só em `requests` (nome, telefone, e-mail), para
+    facilitar a anonimização (RF31).
+
+  Regras que o Prisma não expressa (criar na migration SQL)
+  - reservation_settings.id = 1 (CHECK), garantindo uma única linha.
+  - privacy_notices: no máximo uma linha com active = true
+    (CREATE UNIQUE INDEX ... ON privacy_notices (active) WHERE active).
+  - Disponibilidade de equipamentos: calcular dentro de transação (SERIALIZABLE ou
+    pg_advisory_xact_lock por tipo de equipamento) para impedir reserva dupla (RF04).
+  '''
+}
+
+// ---------------------------------------------------------------- Enums
+
+Enum user_role {
+  attendant [note: 'Atendente do SAC']
+  manager   [note: 'Gestor']
+}
+
+Enum location_type {
+  entrance
+  food_court
+  parking
+  store_area
+  service
+  other
+}
+
+Enum service_kind {
+  interactive   [note: 'Leva ao formulário']
+  informational [note: 'Só exibe informações']
+}
+
+Enum service_flow {
+  equipment_reservation
+  lost_report
+  sac_message
+  none
+}
+
+Enum equipment_type {
+  wheelchair
+  stroller
+}
+
+Enum request_type {
+  reservation
+  lost_report
+  sac_message
+}
+
+Enum request_status {
+  reserved         [note: 'reservation: reservada']
+  picked_up        [note: 'reservation: retirada']
+  returned         [note: 'reservation: devolvida']
+  no_show          [note: 'reservation: não compareceu']
+  registered       [note: 'lost_report: registrado']
+  searching        [note: 'lost_report: em busca']
+  possible_match   [note: 'lost_report: possível correspondência (ao visitante aparece como searching)']
+  ready_for_pickup [note: 'lost_report: pronto para retirada']
+  delivered        [note: 'lost_report: entregue']
+  closed_not_found [note: 'lost_report: encerrado sem localização']
+  open             [note: 'sac_message: aberta']
+  in_progress      [note: 'sac_message: em atendimento']
+  answered         [note: 'sac_message: respondida']
+  closed           [note: 'sac_message: encerrada']
+  cancelled        [note: 'reservation e lost_report: cancelada']
+}
+
+Enum reservation_for_whom {
+  self
+  other
+}
+
+Enum wheelchair_size {
+  adult
+  child
+}
+
+Enum stroller_kind {
+  single
+  double
+}
+
+Enum object_category {
+  documents
+  wallet_bag
+  phone_electronics
+  keys
+  clothing_accessories
+  glasses_jewelry
+  other
+}
+
+Enum day_period {
+  morning
+  afternoon
+  night
+  unknown
+}
+
+Enum sac_subject {
+  question
+  complaint
+  suggestion
+  compliment
+  other
+  data_deletion [note: 'Pedido de exclusão de dados (LGPD)']
+}
+
+Enum found_item_status {
+  stored
+  delivered
+  discarded
+  forwarded
+}
+
+Enum message_author {
+  staff
+  visitor
+}
+
+Enum actor_type {
+  staff
+  visitor
+  system
+}
+
+Enum notification_event {
+  reservation_confirmed
+  status_changed
+  new_message
+}
+
+Enum notification_status {
+  pending
+  sent
+  failed
+}
+
+Enum job_status {
+  success
+  failed
+}
+
+// ---------------------------------------------------------------- Acesso e cadastros
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(120) [not null]
+  email varchar(255) [not null, unique]
+  password_hash varchar(255) [not null, note: 'bcrypt ou Argon2; nunca texto puro']
+  role user_role [not null]
+  active boolean [not null, default: true, note: 'Desativar em vez de excluir']
+  failed_login_attempts integer [not null, default: 0]
+  locked_until timestamptz [note: 'Bloqueio temporário após tentativas falhas']
+  last_login_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  Note: 'RF11, RF12, RF27. Deve existir sempre ao menos um gestor ativo (regra da API).'
+}
+
+Table locations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(120) [not null]
+  floor varchar(40) [not null, note: 'Ex.: Térreo, 2º pavimento, Subsolo 1']
+  type location_type [not null]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (name, floor) [unique]
+  }
+
+  Note: 'RF26. Lista única usada em "onde você está", "onde perdeu" e "onde foi encontrado".'
+}
+
+Table services {
+  id uuid [pk, default: `gen_random_uuid()`]
+  slug varchar(80) [not null, unique]
+  name varchar(120) [not null]
+  short_description varchar(255) [not null]
+  description text
+  icon varchar(60)
+  kind service_kind [not null]
+  flow service_flow [not null, default: 'none']
+  equipment_type equipment_type [note: 'Só quando flow = equipment_reservation']
+  how_it_works text[] [note: 'Passos do "Como funciona"']
+  contact_phone varchar(30)
+  pickup_location_id uuid
+  active boolean [not null, default: true]
+  sort_order integer [not null, default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (active, sort_order)
+  }
+
+  Note: 'RF01, RF02. Mantida por seed; não há administração de serviços no MVP.'
+}
+
+Table opening_hours {
+  id integer [pk, increment]
+  weekday integer [not null, unique, note: '0 = domingo ... 6 = sábado']
+  closed boolean [not null, default: false]
+  open_time varchar(5) [note: 'HH:mm']
+  close_time varchar(5) [note: 'HH:mm']
+
+  Note: 'RF25. Expediente do SAC; limita os horários exibidos ao visitante.'
+}
+
+Table reservation_settings {
+  id integer [pk, default: 1, note: 'Singleton: sempre 1']
+  slot_minutes integer [not null, default: 30]
+  loan_duration_minutes integer [not null, default: 120]
+  pickup_tolerance_minutes integer [not null, default: 15]
+  max_advance_days integer [not null, default: 7]
+  max_active_reservations_per_phone integer [not null, default: 1]
+  require_document_on_pickup boolean [not null, default: false]
+  found_item_storage_days integer [not null, default: 90, note: 'Valor inicial assumido; confirmar com o shopping']
+  personal_data_retention_days integer [not null, default: 180, note: 'Valor inicial assumido; confirmar com o shopping']
+  updated_at timestamptz [not null]
+
+  Note: 'RF25, RF20, RF23, RF31. Valores padrão são as premissas do documento de requisitos.'
+}
+
+Table equipment {
+  id uuid [pk, default: `gen_random_uuid()`]
+  type equipment_type [not null]
+  label varchar(80) [not null, note: 'Ex.: Cadeira adulto']
+  quantity integer [not null, default: 0]
+  pickup_location_id uuid [not null]
+  active boolean [not null, default: true, note: 'Inativa (ex.: manutenção) não entra na disponibilidade']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (type, active)
+  }
+
+  Note: 'RF24. Disponibilidade = soma de quantity (ativos do tipo) - reservas sobrepostas. Sem exclusão, apenas inativação.'
+}
+
+Table privacy_notices {
+  id uuid [pk, default: `gen_random_uuid()`]
+  version varchar(20) [not null, unique]
+  text text [not null]
+  active boolean [not null, default: false, note: 'Só uma versão vigente (índice parcial na migration)']
+  published_at timestamptz [not null, default: `now()`]
+
+  Note: 'RF10. Versão do aviso aceita pelo visitante.'
+}
+
+// ---------------------------------------------------------------- Núcleo de solicitações
+
+Table requests {
+  id uuid [pk, default: `gen_random_uuid()`]
+  protocol varchar(13) [not null, unique, note: 'Formato CAP-XXXX-XXXX, imprevisível']
+  type request_type [not null]
+  status request_status [not null]
+  visitor_name varchar(120) [not null, note: 'Na anonimização (RF31) vira "Anonimizado"']
+  visitor_phone varchar(11) [note: 'DDD + número, só dígitos. Nulo se anonimizado']
+  visitor_email varchar(255) [note: 'Opcional. Nulo se anonimizado']
+  has_new_visitor_reply boolean [not null, default: false]
+  first_response_at timestamptz [note: 'Primeira resposta da equipe (indicador RF30)']
+  completed_at timestamptz [note: 'Quando entrou em status final (base do prazo de retenção)']
+  anonymized_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (type, status)
+    (visitor_phone, type, status) [note: 'Limite de reservas ativas por telefone']
+    created_at
+    (anonymized_at, completed_at) [note: 'Job de anonimização']
+  }
+
+  Note: 'Núcleo comum de RF04, RF05, RF06, RF07, RF13, RF14. Única tabela com dados pessoais do visitante.'
+}
+
+Table consents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null]
+  privacy_notice_version varchar(20) [not null]
+  purpose varchar(120) [not null, note: 'Ex.: atender a solicitação']
+  accepted_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    request_id
+  }
+
+  Note: 'RF10. Registro do aceite (versão, data, hora e finalidade).'
+}
+
+Table reservations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null, unique]
+  equipment_type equipment_type [not null]
+  start_at timestamptz [not null]
+  end_at timestamptz [not null]
+  pickup_deadline timestamptz [not null, note: 'start_at + tolerância']
+  picked_up_at timestamptz
+  returned_at timestamptz
+  for_whom reservation_for_whom [note: 'Só cadeira de rodas']
+  size wheelchair_size [note: 'Só cadeira de rodas']
+  stroller_kind stroller_kind [note: 'Só carrinho, se houver mais de um modelo']
+  current_location_id uuid
+  notes varchar(200)
+  document_checked boolean
+  pickup_notes varchar(300)
+  return_notes varchar(300) [note: 'Estado do equipamento na devolução']
+
+  indexes {
+    (equipment_type, start_at, end_at) [note: 'Cálculo de disponibilidade']
+    start_at
+  }
+
+  Note: 'RF03, RF04, RF17, RF18, RF19. Quem retirou/devolveu fica em request_history.'
+}
+
+Table unmet_demands {
+  id uuid [pk, default: `gen_random_uuid()`]
+  equipment_type equipment_type [not null]
+  requested_for date [not null, note: 'Data consultada sem horário livre']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (equipment_type, created_at)
+  }
+
+  Note: 'RF03 (regra 4) e RF28. Dado anônimo: sem vínculo com visitante.'
+}
+
+Table lost_reports {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null, unique]
+  category object_category [not null]
+  description varchar(500) [not null, note: 'Nunca exibida ao público']
+  identification_detail varchar(300) [note: 'Só equipe; valida o dono']
+  photo_url varchar(500)
+  location_id uuid
+  unknown_location boolean [not null, default: false]
+  lost_date date [not null]
+  lost_period day_period [not null, default: 'unknown']
+  found_item_id uuid [unique, note: 'Item encontrado vinculado (RF22)']
+  matched_at timestamptz
+  identification_validated boolean
+  delivered_at timestamptz
+  delivery_notes varchar(300)
+
+  indexes {
+    category
+    lost_date
+    location_id
+  }
+
+  Note: 'RF05, RF21, RF22, RF29.'
+}
+
+Table found_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  seq integer [not null, unique, increment, note: 'Base do código legível']
+  code varchar(20) [not null, unique, note: 'Ex.: ACH-0042']
+  status found_item_status [not null, default: 'stored']
+  category object_category [not null]
+  description varchar(500) [not null, note: 'Uso interno; nunca exibida ao público']
+  found_location_id uuid [not null, note: 'Local do achado, registrado pela equipe']
+  found_at timestamptz [not null]
+  stored_place varchar(120) [note: 'Onde está guardado']
+  photo_url varchar(500)
+  handed_in_by varchar(120) [note: 'Quem entregou ao setor']
+  storage_deadline date [not null, note: 'found_at + found_item_storage_days']
+  registered_by_id uuid [not null]
+  closed_at timestamptz
+  closed_by_id uuid
+  close_notes varchar(300)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (status, storage_deadline)
+    category
+    found_location_id
+  }
+
+  Note: 'RF20, RF21, RF22, RF23, RF29.'
+}
+
+Table sac_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null, unique]
+  subject sac_subject [not null]
+  message varchar(1500) [not null]
+  related_service_id uuid
+  related_protocol varchar(13)
+
+  Note: 'RF06.'
+}
+
+Table request_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null]
+  author message_author [not null]
+  author_user_id uuid [note: 'Preenchido quando author = staff']
+  text varchar(1000) [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (request_id, created_at)
+  }
+
+  Note: 'RF07, RF09, RF16. Mensagens visíveis ao visitante.'
+}
+
+Table request_history {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null]
+  from_status request_status
+  to_status request_status [not null]
+  actor_type actor_type [not null]
+  actor_user_id uuid [note: 'Preenchido quando actor_type = staff']
+  internal_note varchar(500) [note: 'Nunca aparece ao visitante']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (request_id, created_at)
+  }
+
+  Note: 'RF14, RF15. Quem alterou o quê e quando; inclui ações do sistema (ex.: no_show).'
+}
+
+// ---------------------------------------------------------------- Operação
+
+Table notification_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  request_id uuid [not null]
+  event notification_event [not null]
+  to_email varchar(255) [not null]
+  status notification_status [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  error varchar(500)
+  created_at timestamptz [not null, default: `now()`]
+  sent_at timestamptz
+
+  indexes {
+    status
+    request_id
+  }
+
+  Note: 'RF32. Falha no envio não impede a operação principal; o job tenta de novo.'
+}
+
+Table job_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_name varchar(60) [not null, note: 'expire-reservations, anonymize-personal-data, send-notifications']
+  status job_status [not null]
+  affected_count integer [not null, default: 0]
+  error varchar(500)
+  started_at timestamptz [not null, default: `now()`]
+  finished_at timestamptz
+
+  indexes {
+    (job_name, started_at)
+  }
+
+  Note: 'RF19, RF31. Registro da execução das tarefas agendadas.'
+}
+
+// ---------------------------------------------------------------- Relacionamentos
+
+Ref: services.pickup_location_id > locations.id
+Ref: equipment.pickup_location_id > locations.id
+
+Ref: consents.request_id > requests.id [delete: cascade]
+Ref: consents.privacy_notice_version > privacy_notices.version
+
+Ref: reservations.request_id - requests.id [delete: cascade]
+Ref: reservations.current_location_id > locations.id
+
+Ref: lost_reports.request_id - requests.id [delete: cascade]
+Ref: lost_reports.location_id > locations.id
+Ref: lost_reports.found_item_id - found_items.id
+
+Ref: found_items.found_location_id > locations.id
+Ref: found_items.registered_by_id > users.id
+Ref: found_items.closed_by_id > users.id
+
+Ref: sac_messages.request_id - requests.id [delete: cascade]
+Ref: sac_messages.related_service_id > services.id
+
+Ref: request_messages.request_id > requests.id [delete: cascade]
+Ref: request_messages.author_user_id > users.id
+
+Ref: request_history.request_id > requests.id [delete: cascade]
+Ref: request_history.actor_user_id > users.id
+
+Ref: notification_logs.request_id > requests.id [delete: cascade]

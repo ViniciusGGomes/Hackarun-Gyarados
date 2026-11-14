@@ -1,0 +1,2419 @@
+openapi: 3.0.3
+info:
+  title: API de Serviços - Capim Dourado Shopping
+  version: 1.0.0
+  description: |
+    API REST do sistema de solicitação de serviços do shopping: reserva de cadeira de rodas e carrinho de bebê,
+    achados e perdidos e contato com o SAC. Atende a área do visitante (sem login) e a área administrativa (com login).
+
+    ## Convenções
+    - **Base path:** `/api/v1`. Formato JSON, datas em ISO 8601 (UTC no transporte; o shopping opera em America/Araguaina).
+    - **Autenticação:** rotas `/admin/*` exigem `Authorization: Bearer <JWT>`. Rotas públicas não exigem login.
+    - **Perfis:** `attendant` (Atendente) e `manager` (Gestor). Rotas marcadas "Gestor" rejeitam o Atendente com 403.
+    - **Protocolo:** código imprevisível, formato `CAP-XXXX-XXXX`. O visitante consulta com protocolo + telefone.
+    - **Privacidade:** todo formulário público exige `consent.accepted = true` (RF10). A API nunca devolve a descrição de itens encontrados ao público.
+    - **Paginação:** `page` (a partir de 1) e `pageSize` (máx. 100). Resposta no formato `{ data, meta }`.
+    - **Erros:** formato único `ErrorResponse` com `code` estável para o frontend tratar.
+
+    ## Status por tipo de solicitação
+    | Tipo | Status | Transições permitidas (Atendente/Gestor) |
+    |---|---|---|
+    | reservation | reserved, picked_up, returned, cancelled, no_show | reserved→picked_up (retirada), picked_up→returned (devolução), reserved→cancelled. Use os endpoints de retirada e devolução |
+    | lost_report | registered, searching, possible_match, ready_for_pickup, delivered, closed_not_found, cancelled | registered→searching→possible_match→ready_for_pickup→delivered; qualquer status aberto→closed_not_found |
+    | sac_message | open, in_progress, answered, closed | open→in_progress→answered→closed |
+
+    Status finais (returned, cancelled, no_show, delivered, closed_not_found, closed) só são reabertos pelo Gestor.
+    Ao visitante, `possible_match` é exibido como `searching` (não revelar correspondência antes da validação).
+
+    ## Processos automáticos (sem endpoint)
+    Executados como tarefas agendadas no backend: RF19 (marcar `no_show` após tolerância), RF31 (anonimizar dados após o prazo de retenção), RF32 (e-mails de notificação) e o cálculo de sugestões de RF21 (consultado por endpoint).
+  contact:
+    name: Equipe Gyarados
+servers:
+  - url: http://localhost:3333/api/v1
+    description: Desenvolvimento
+  - url: https://api.exemplo.com/api/v1
+    description: Produção (ajustar)
+tags:
+  - name: Público - Serviços
+    description: Páginas de serviços e dados de apoio dos formulários (RF01, RF02, RF10, RF26)
+  - name: Público - Reservas
+    description: Reserva de cadeira de rodas e carrinho de bebê (RF03, RF04)
+  - name: Público - Achados e perdidos
+    description: Registro de objeto perdido (RF05)
+  - name: Público - SAC
+    description: Mensagem ao atendimento (RF06)
+  - name: Público - Acompanhamento
+    description: Consulta, cancelamento e mensagens por protocolo (RF07, RF08, RF09)
+  - name: Autenticação
+    description: Login da equipe (RF11, RF12)
+  - name: Admin - Solicitações
+    description: Fila, detalhe, status e mensagens (RF13 a RF16)
+  - name: Admin - Equipamentos
+    description: Agenda, retirada e devolução (RF17, RF18)
+  - name: Admin - Achados e perdidos
+    description: Itens encontrados, correspondência e entrega (RF20 a RF23)
+  - name: Admin - Configurações
+    description: Equipamentos, regras, locais e usuários - Gestor (RF24 a RF27)
+  - name: Admin - Indicadores
+    description: Indicadores agregados - Gestor (RF28 a RF30)
+
+paths:
+  /privacy-notice:
+    get:
+      tags: [Público - Serviços]
+      summary: Aviso de privacidade vigente (RF10)
+      operationId: getPrivacyNotice
+      security: []
+      responses:
+        '200':
+          description: Aviso vigente. A `version` deve ser enviada em `consent.privacyNoticeVersion`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyNotice'
+
+  /services:
+    get:
+      tags: [Público - Serviços]
+      summary: Listar serviços ativos (RF01)
+      operationId: listServices
+      security: []
+      responses:
+        '200':
+          description: Serviços ativos. `kind=interactive` leva ao formulário; `informational` só exibe informações.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+
+  /services/{slug}:
+    get:
+      tags: [Público - Serviços]
+      summary: Detalhes de um serviço (RF02)
+      operationId: getService
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: cadeiras-de-rodas
+      responses:
+        '200':
+          description: Detalhes, como funciona e horário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /locations:
+    get:
+      tags: [Público - Serviços]
+      summary: Listar locais ativos do shopping (RF26)
+      description: Lista usada nos campos "onde você está", "onde perdeu" e "onde foi encontrado".
+      operationId: listPublicLocations
+      security: []
+      responses:
+        '200':
+          description: Locais ativos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+
+  /uploads/photos:
+    post:
+      tags: [Público - Achados e perdidos]
+      summary: Enviar foto opcional do objeto
+      description: Retorna uma URL para ser usada em `photoUrl` do registro. Máx. 5 MB, formatos jpeg, png ou webp. Sujeito a limite de requisições.
+      operationId: uploadPhoto
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Foto recebida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /equipment/{type}/availability:
+    get:
+      tags: [Público - Reservas]
+      summary: Horários disponíveis de um equipamento (RF03)
+      description: |
+        Disponibilidade por bloco = unidades ativas menos reservas sobrepostas (status reserved ou picked_up).
+        Só retorna horários dentro do expediente, que ainda não passaram e dentro da antecedência máxima.
+        Se nenhum horário estiver livre, o backend registra uma **demanda não atendida** (usada em RF28).
+      operationId: getAvailability
+      security: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/EquipmentType'
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2026-11-16'
+      responses:
+        '200':
+          description: Blocos de horário do dia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /reservations:
+    post:
+      tags: [Público - Reservas]
+      summary: Reservar equipamento (RF04)
+      description: |
+        A disponibilidade é revalidada dentro de uma transação. Regras: nome, telefone e consentimento obrigatórios;
+        limite de reservas ativas por telefone (por tipo); não perguntar motivo, deficiência ou condição de saúde.
+        Para `mode=now` o início é o bloco atual. Para `mode=scheduled`, `startAt` é obrigatório.
+        Campos de cadeira (`forWhom`, `size`) só se aplicam a `wheelchair`; `strollerKind` só a `stroller`.
+      operationId: createReservation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReservation'
+            examples:
+              cadeira:
+                summary: Cadeira de rodas agendada
+                value:
+                  equipmentType: wheelchair
+                  mode: scheduled
+                  startAt: '2026-11-16T15:00:00-03:00'
+                  name: Maria Souza
+                  phone: '63999998888'
+                  email: maria@email.com
+                  currentLocationId: 4a7f1c2e-0a3b-4c55-9d10-1e2f3a4b5c6d
+                  forWhom: self
+                  size: adult
+                  notes: Estou na entrada principal
+                  consent:
+                    accepted: true
+                    privacyNoticeVersion: '1.0'
+      responses:
+        '201':
+          description: Reserva criada com status `reserved`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: "`SLOT_UNAVAILABLE` (horário acabou de ser reservado) ou `ACTIVE_RESERVATION_LIMIT` (telefone já tem reserva ativa)."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /lost-reports:
+    post:
+      tags: [Público - Achados e perdidos]
+      summary: Registrar objeto perdido (RF05)
+      description: |
+        Obrigatórios: categoria, descrição, local (ou `unknownLocation=true`), data, nome, telefone e consentimento.
+        `identificationDetail` é visível só para a equipe e serve para validar o dono. A descrição nunca é pública.
+      operationId: createLostReport
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLostReport'
+            examples:
+              carteira:
+                value:
+                  category: wallet_bag
+                  description: Carteira preta de couro
+                  identificationDetail: Foto de um cachorro dentro da carteira
+                  locationId: 9b1d2c3e-1111-4a2b-8c3d-5e6f7a8b9c0d
+                  unknownLocation: false
+                  lostDate: '2026-11-12'
+                  lostPeriod: afternoon
+                  name: João Lima
+                  phone: '63988887777'
+                  consent:
+                    accepted: true
+                    privacyNoticeVersion: '1.0'
+      responses:
+        '201':
+          description: Registro criado com status `registered`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /sac-messages:
+    post:
+      tags: [Público - SAC]
+      summary: Enviar mensagem ao SAC (RF06)
+      description: |
+        Obrigatórios: assunto, mensagem, nome, consentimento e ao menos um contato (telefone ou e-mail).
+        O assunto `data_deletion` registra pedido de exclusão de dados. Emergências não devem ser tratadas por este formulário.
+      operationId: createSacMessage
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSacMessage'
+            examples:
+              reclamacao:
+                value:
+                  subject: complaint
+                  message: O banheiro do segundo piso estava sem papel.
+                  name: Ana Prado
+                  email: ana@email.com
+                  relatedService: null
+                  relatedProtocol: null
+                  consent:
+                    accepted: true
+                    privacyNoticeVersion: '1.0'
+      responses:
+        '201':
+          description: Mensagem criada com status `open`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /tracking/lookup:
+    post:
+      tags: [Público - Acompanhamento]
+      summary: Consultar solicitação por protocolo (RF07)
+      description: |
+        Exige protocolo e telefone cadastrado. Usa POST para não expor o telefone na URL.
+        Se algum dado estiver incorreto, retorna sempre o mesmo 404 genérico. Limite de tentativas por origem (429).
+        Só eventos e mensagens públicos são retornados.
+      operationId: lookupTracking
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingCredentials'
+      responses:
+        '200':
+          description: Visão pública da solicitação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingView'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /tracking/{protocol}/cancel:
+    post:
+      tags: [Público - Acompanhamento]
+      summary: Cancelar solicitação (RF08)
+      description: |
+        Só reservas antes da retirada e objetos perdidos ainda não entregues. Cancelar uma reserva libera a unidade na hora.
+        Fora dessas condições retorna 409 `REQUEST_NOT_CANCELLABLE`.
+      operationId: cancelTracking
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProtocolPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  $ref: '#/components/schemas/Phone'
+                reason:
+                  type: string
+                  maxLength: 200
+      responses:
+        '200':
+          description: Solicitação cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingView'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /tracking/{protocol}/messages:
+    post:
+      tags: [Público - Acompanhamento]
+      summary: Enviar mensagem à equipe (RF09)
+      description: Só em solicitações não encerradas. Sinaliza `hasNewVisitorReply` na fila da equipe.
+      operationId: sendVisitorMessage
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProtocolPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, text]
+              properties:
+                phone:
+                  $ref: '#/components/schemas/Phone'
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '201':
+          description: Mensagem registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingMessage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Login da equipe (RF11)
+      description: Senha com hash no banco. Bloqueio temporário após várias tentativas falhas (423 `ACCOUNT_LOCKED`). Usuário inativo não entra. O token expira por inatividade.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  expiresIn:
+                    type: integer
+                    description: Segundos até expirar
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: "`INVALID_CREDENTIALS`"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: "`ACCOUNT_LOCKED`"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Autenticação]
+      summary: Logout (RF11)
+      operationId: logout
+      responses:
+        '204':
+          description: Sessão encerrada
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Autenticação]
+      summary: Usuário autenticado e perfil (RF12)
+      operationId: getMe
+      responses:
+        '200':
+          description: Usuário atual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/requests:
+    get:
+      tags: [Admin - Solicitações]
+      summary: Listar e filtrar solicitações (RF13)
+      description: Fila de todos os serviços. Reservas do dia em destaque via `scheduledOn`. Solicitações com resposta nova do visitante vêm com `hasNewVisitorReply=true`.
+      operationId: listRequests
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/RequestType'
+        - name: status
+          in: query
+          description: Status do tipo filtrado
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: scheduledOn
+          in: query
+          description: Reservas com início nesta data (agenda do dia)
+          schema:
+            type: string
+            format: date
+        - name: q
+          in: query
+          description: Busca por protocolo, nome ou telefone
+          schema:
+            type: string
+        - name: hasNewReply
+          in: query
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, -createdAt]
+            default: -createdAt
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RequestListItem'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/requests/{id}:
+    get:
+      tags: [Admin - Solicitações]
+      summary: Detalhe da solicitação (RF14)
+      description: Inclui campos específicos do tipo, contato do visitante, detalhe de identificação (só autenticados), histórico (quem alterou o quê e quando) e mensagens.
+      operationId: getRequest
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Detalhe completo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/requests/{id}/status:
+    patch:
+      tags: [Admin - Solicitações]
+      summary: Atualizar status (RF15)
+      description: |
+        Aceita só transições válidas do fluxo do tipo (ver tabela na descrição da API); caso contrário 409 `INVALID_STATUS_TRANSITION`.
+        Retirada e devolução de reservas usam os endpoints de equipamentos. Status final só é reaberto pelo Gestor.
+        `internalNote` nunca aparece ao visitante. Toda mudança entra no histórico com autor e horário.
+      operationId: updateRequestStatus
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  example: searching
+                internalNote:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Solicitação atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/requests/{id}/messages:
+    post:
+      tags: [Admin - Solicitações]
+      summary: Enviar mensagem ao visitante (RF16)
+      description: |
+        A mensagem aparece no acompanhamento (RF07). Em achados e perdidos, não descrever o item. Se houver e-mail, dispara notificação (RF32).
+        A primeira resposta registra o horário para o indicador de tempo de resposta.
+      operationId: sendStaffMessage
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '201':
+          description: Mensagem registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/agenda:
+    get:
+      tags: [Admin - Equipamentos]
+      summary: Agenda do dia (RF17)
+      description: Reservas por horário e unidades livres por bloco, ordenadas por horário. Sinaliza retirada atrasada e devolução atrasada.
+      operationId: getAgenda
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: equipmentType
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/EquipmentType'
+      responses:
+        '200':
+          description: Agenda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agenda'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/reservations/{id}/pickup:
+    post:
+      tags: [Admin - Equipamentos]
+      summary: Registrar retirada (RF18)
+      description: Só em reserva `reserved`, entre o início do bloco e a tolerância de retirada. Guarda o horário real. Se o parâmetro exigir documento, `documentChecked` deve ser true.
+      operationId: registerPickup
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentChecked:
+                  type: boolean
+                notes:
+                  type: string
+                  maxLength: 300
+      responses:
+        '200':
+          description: Reserva com status `picked_up`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/reservations/{id}/return:
+    post:
+      tags: [Admin - Equipamentos]
+      summary: Registrar devolução (RF18)
+      description: Só em reserva `picked_up`. Libera a unidade e guarda o horário real.
+      operationId: registerReturn
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conditionNotes:
+                  type: string
+                  description: Estado do equipamento
+                  maxLength: 300
+      responses:
+        '200':
+          description: Reserva com status `returned`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/found-items:
+    get:
+      tags: [Admin - Achados e perdidos]
+      summary: Listar itens encontrados
+      operationId: listFoundItems
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/FoundItemStatus'
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ObjectCategory'
+        - name: expired
+          in: query
+          description: Somente itens com prazo de guarda vencido
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Lista paginada (uso interno, nunca exibida ao público)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FoundItem'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Admin - Achados e perdidos]
+      summary: Cadastrar item encontrado (RF20)
+      description: Obrigatórios categoria, descrição, local do achado e data. Status inicial `stored`. O prazo de guarda vem das configurações.
+      operationId: createFoundItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFoundItem'
+      responses:
+        '201':
+          description: Item cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoundItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/found-items/{id}:
+    get:
+      tags: [Admin - Achados e perdidos]
+      summary: Detalhe de item encontrado
+      operationId: getFoundItem
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoundItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/found-items/{id}/close:
+    post:
+      tags: [Admin - Achados e perdidos]
+      summary: Encerrar item sem dono (RF23)
+      description: Só itens `stored` com prazo vencido. Registra o destino no histórico.
+      operationId: closeFoundItem
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination]
+              properties:
+                destination:
+                  type: string
+                  enum: [discarded, forwarded]
+                notes:
+                  type: string
+                  maxLength: 300
+      responses:
+        '200':
+          description: Item encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoundItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/lost-reports/{id}/suggestions:
+    get:
+      tags: [Admin - Achados e perdidos]
+      summary: Sugestões de correspondência (RF21)
+      description: Cruza o perdido (`registered` ou `searching`) com itens `stored` por categoria, local, data e palavras da descrição. Só a equipe vê. Nunca altera status sozinha.
+      operationId: getMatchSuggestions
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Possíveis pares ordenados por pontuação
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchSuggestion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/lost-reports/{id}/match:
+    post:
+      tags: [Admin - Achados e perdidos]
+      summary: Vincular perdido a item encontrado (RF22)
+      description: Registra o vínculo e muda o perdido para `possible_match`. A confirmação ao visitante não descreve o item.
+      operationId: matchLostReport
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [foundItemId]
+              properties:
+                foundItemId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Vínculo registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/lost-reports/{id}/deliver:
+    post:
+      tags: [Admin - Achados e perdidos]
+      summary: Registrar entrega ao dono (RF22)
+      description: |
+        A equipe valida o dono pela característica de identificação antes de entregar (`identificationValidated` deve ser true).
+        O perdido vai para `delivered` e o item vinculado para `delivered`. O status `ready_for_pickup` é definido antes, por `PATCH /admin/requests/{id}/status`.
+      operationId: deliverLostReport
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identificationValidated]
+              properties:
+                identificationValidated:
+                  type: boolean
+                notes:
+                  type: string
+                  maxLength: 300
+      responses:
+        '200':
+          description: Entrega registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/equipment:
+    get:
+      tags: [Admin - Configurações]
+      summary: Listar equipamentos (RF24) - Gestor
+      operationId: listEquipment
+      responses:
+        '200':
+          description: Equipamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Equipment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin - Configurações]
+      summary: Cadastrar equipamento (RF24) - Gestor
+      operationId: createEquipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentInput'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/equipment/{id}:
+    patch:
+      tags: [Admin - Configurações]
+      summary: Editar ou inativar equipamento (RF24) - Gestor
+      description: Unidade inativa não entra na disponibilidade. Reduzir a quantidade com reservas futuras conflitantes retorna o aviso em `warnings`. Não há exclusão; apenas inativação.
+      operationId: updateEquipment
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentInput'
+      responses:
+        '200':
+          description: Atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  equipment:
+                    $ref: '#/components/schemas/Equipment'
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/settings/reservations:
+    get:
+      tags: [Admin - Configurações]
+      summary: Consultar regras de reserva (RF25)
+      operationId: getReservationSettings
+      responses:
+        '200':
+          description: Regras vigentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Admin - Configurações]
+      summary: Configurar regras de reserva (RF25) - Gestor
+      description: A alteração vale só para reservas futuras. O expediente limita os horários exibidos ao visitante.
+      operationId: updateReservationSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationSettings'
+      responses:
+        '200':
+          description: Regras salvas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/locations:
+    get:
+      tags: [Admin - Configurações]
+      summary: Listar locais, inclusive inativos (RF26)
+      operationId: listLocations
+      responses:
+        '200':
+          description: Locais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Admin - Configurações]
+      summary: Cadastrar local (RF26) - Gestor
+      operationId: createLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/locations/{id}:
+    patch:
+      tags: [Admin - Configurações]
+      summary: Editar ou inativar local (RF26) - Gestor
+      description: Local inativo não aparece em novos formulários, mas permanece nos registros antigos.
+      operationId: updateLocation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '200':
+          description: Atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/users:
+    get:
+      tags: [Admin - Configurações]
+      summary: Listar usuários administrativos (RF27) - Gestor
+      operationId: listUsers
+      responses:
+        '200':
+          description: Usuários
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin - Configurações]
+      summary: Cadastrar usuário (RF27) - Gestor
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUser'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: "`EMAIL_ALREADY_EXISTS`"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{id}:
+    patch:
+      tags: [Admin - Configurações]
+      summary: Editar ou desativar usuário (RF27) - Gestor
+      description: Desativar em vez de excluir. Deve existir sempre ao menos um Gestor ativo (409 `LAST_MANAGER`).
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUser'
+      responses:
+        '200':
+          description: Atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/indicators/equipment:
+    get:
+      tags: [Admin - Indicadores]
+      summary: Indicadores de equipamentos (RF28) - Gestor
+      description: Dados agregados, sem dados pessoais.
+      operationId: getEquipmentIndicators
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: equipmentType
+          in: query
+          schema:
+            $ref: '#/components/schemas/EquipmentType'
+      responses:
+        '200':
+          description: Indicadores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentIndicators'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/indicators/lost-and-found:
+    get:
+      tags: [Admin - Indicadores]
+      summary: Indicadores de achados e perdidos (RF29) - Gestor
+      description: O local informado pelo visitante (perdido) e o local do achado (encontrado) são retornados separados.
+      operationId: getLostFoundIndicators
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Indicadores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LostFoundIndicators'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/indicators/service:
+    get:
+      tags: [Admin - Indicadores]
+      summary: Indicadores de atendimento (RF30) - Gestor
+      operationId: getServiceIndicators
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Indicadores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceIndicators'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    From:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date
+    To:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProtocolPath:
+      name: protocol
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^CAP-[A-Z0-9]{4}-[A-Z0-9]{4}$'
+      example: CAP-7K3Q-9XM2
+  responses:
+    BadRequest:
+      description: "`VALIDATION_ERROR` ou `CONSENT_REQUIRED`"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: "`UNAUTHORIZED` - token ausente, inválido ou expirado"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: "`FORBIDDEN` - perfil sem permissão"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: "`NOT_FOUND`. Em consultas por protocolo, a mensagem é genérica para não revelar se o protocolo existe."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: "`INVALID_STATUS_TRANSITION`, `REQUEST_NOT_CANCELLABLE`, `LAST_MANAGER` ou outra regra de negócio violada"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: "`TOO_MANY_REQUESTS` - limite de requisições excedido"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [statusCode, code, message]
+      properties:
+        statusCode:
+          type: integer
+          example: 409
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - CONSENT_REQUIRED
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - INVALID_CREDENTIALS
+            - ACCOUNT_LOCKED
+            - SLOT_UNAVAILABLE
+            - ACTIVE_RESERVATION_LIMIT
+            - OUTSIDE_OPENING_HOURS
+            - INVALID_STATUS_TRANSITION
+            - REQUEST_NOT_CANCELLABLE
+            - EMAIL_ALREADY_EXISTS
+            - LAST_MANAGER
+            - TOO_MANY_REQUESTS
+            - INTERNAL_ERROR
+        message:
+          type: string
+          example: Esse horário acabou de ser reservado. Escolha outro horário.
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              issue:
+                type: string
+
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Phone:
+      type: string
+      description: Telefone com DDD, só dígitos
+      pattern: '^[0-9]{10,11}$'
+      example: '63999998888'
+
+    EquipmentType:
+      type: string
+      enum: [wheelchair, stroller]
+    RequestType:
+      type: string
+      enum: [reservation, lost_report, sac_message]
+    ObjectCategory:
+      type: string
+      enum: [documents, wallet_bag, phone_electronics, keys, clothing_accessories, glasses_jewelry, other]
+    DayPeriod:
+      type: string
+      enum: [morning, afternoon, night, unknown]
+    SacSubject:
+      type: string
+      enum: [question, complaint, suggestion, compliment, other, data_deletion]
+    FoundItemStatus:
+      type: string
+      enum: [stored, delivered, discarded, forwarded]
+    UserRole:
+      type: string
+      enum: [attendant, manager]
+    LocationType:
+      type: string
+      enum: [entrance, food_court, parking, store_area, service, other]
+
+    Consent:
+      type: object
+      required: [accepted, privacyNoticeVersion]
+      properties:
+        accepted:
+          type: boolean
+          enum: [true]
+        privacyNoticeVersion:
+          type: string
+          example: '1.0'
+
+    PrivacyNotice:
+      type: object
+      properties:
+        version:
+          type: string
+        text:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Praça de alimentação
+        floor:
+          type: string
+          example: 2º pavimento
+        type:
+          $ref: '#/components/schemas/LocationType'
+        active:
+          type: boolean
+    LocationInput:
+      type: object
+      required: [name, floor, type]
+      properties:
+        name:
+          type: string
+        floor:
+          type: string
+        type:
+          $ref: '#/components/schemas/LocationType'
+        active:
+          type: boolean
+          default: true
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: cadeiras-de-rodas
+        name:
+          type: string
+          example: Cadeiras de rodas
+        shortDescription:
+          type: string
+        icon:
+          type: string
+        kind:
+          type: string
+          enum: [interactive, informational]
+        flow:
+          type: string
+          description: Fluxo do formulário. `none` para serviços informativos.
+          enum: [equipment_reservation, lost_report, sac_message, none]
+        equipmentType:
+          allOf:
+            - $ref: '#/components/schemas/EquipmentType'
+          nullable: true
+    ServiceDetail:
+      allOf:
+        - $ref: '#/components/schemas/Service'
+        - type: object
+          properties:
+            description:
+              type: string
+            howItWorks:
+              type: array
+              items:
+                type: string
+              example: [Escolha o horário, Retire no SAC, Devolva no mesmo local]
+            openingHours:
+              type: array
+              items:
+                $ref: '#/components/schemas/OpeningHour'
+            isOpenNow:
+              type: boolean
+            pickupLocation:
+              $ref: '#/components/schemas/Location'
+            loanDurationMinutes:
+              type: integer
+              nullable: true
+            pickupToleranceMinutes:
+              type: integer
+              nullable: true
+            storageDays:
+              type: integer
+              nullable: true
+              description: Prazo de guarda (achados e perdidos)
+            contactPhone:
+              type: string
+              example: (63) 3219-4616
+
+    OpeningHour:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 = domingo
+        closed:
+          type: boolean
+        open:
+          type: string
+          example: '10:00'
+        close:
+          type: string
+          example: '22:00'
+
+    Availability:
+      type: object
+      properties:
+        equipmentType:
+          $ref: '#/components/schemas/EquipmentType'
+        date:
+          type: string
+          format: date
+        slotMinutes:
+          type: integer
+          example: 30
+        loanDurationMinutes:
+          type: integer
+          example: 120
+        nowAvailable:
+          type: boolean
+          nullable: true
+          description: Para "Preciso agora". Só é preenchido quando a data é hoje.
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: string
+                format: date-time
+              end:
+                type: string
+                format: date-time
+              availableUnits:
+                type: integer
+              available:
+                type: boolean
+
+    CreateReservation:
+      type: object
+      required: [equipmentType, mode, name, phone, consent]
+      properties:
+        equipmentType:
+          $ref: '#/components/schemas/EquipmentType'
+        mode:
+          type: string
+          enum: [now, scheduled]
+        startAt:
+          type: string
+          format: date-time
+          description: Obrigatório quando `mode=scheduled`
+        name:
+          type: string
+          maxLength: 120
+        phone:
+          $ref: '#/components/schemas/Phone'
+        email:
+          type: string
+          format: email
+        currentLocationId:
+          type: string
+          format: uuid
+        forWhom:
+          type: string
+          enum: [self, other]
+          description: Somente cadeira de rodas
+        size:
+          type: string
+          enum: [adult, child]
+          description: Somente cadeira de rodas
+        strollerKind:
+          type: string
+          enum: [single, double]
+          description: Somente carrinho, se houver mais de um modelo
+        notes:
+          type: string
+          maxLength: 200
+        consent:
+          $ref: '#/components/schemas/Consent'
+
+    ProtocolCreated:
+      type: object
+      properties:
+        protocol:
+          type: string
+          example: CAP-4M8Z-2QWD
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        trackingPath:
+          type: string
+          example: /acompanhar/CAP-4M8Z-2QWD
+    ReservationCreated:
+      allOf:
+        - $ref: '#/components/schemas/ProtocolCreated'
+        - type: object
+          properties:
+            equipmentType:
+              $ref: '#/components/schemas/EquipmentType'
+            startAt:
+              type: string
+              format: date-time
+            endAt:
+              type: string
+              format: date-time
+            pickupDeadline:
+              type: string
+              format: date-time
+              description: Início + tolerância. Sem retirada até aqui, a reserva é cancelada automaticamente.
+            pickupLocation:
+              $ref: '#/components/schemas/Location'
+
+    CreateLostReport:
+      type: object
+      required: [category, description, lostDate, name, phone, consent]
+      properties:
+        category:
+          $ref: '#/components/schemas/ObjectCategory'
+        description:
+          type: string
+          maxLength: 500
+        identificationDetail:
+          type: string
+          maxLength: 300
+          description: Visível só para a equipe
+        photoUrl:
+          type: string
+          format: uri
+          description: URL retornada por `POST /uploads/photos`
+        locationId:
+          type: string
+          format: uuid
+        unknownLocation:
+          type: boolean
+          default: false
+        lostDate:
+          type: string
+          format: date
+        lostPeriod:
+          $ref: '#/components/schemas/DayPeriod'
+        name:
+          type: string
+          maxLength: 120
+        phone:
+          $ref: '#/components/schemas/Phone'
+        email:
+          type: string
+          format: email
+        consent:
+          $ref: '#/components/schemas/Consent'
+
+    CreateSacMessage:
+      type: object
+      required: [subject, message, name, consent]
+      properties:
+        subject:
+          $ref: '#/components/schemas/SacSubject'
+        message:
+          type: string
+          maxLength: 1500
+        name:
+          type: string
+          maxLength: 120
+        phone:
+          $ref: '#/components/schemas/Phone'
+        email:
+          type: string
+          format: email
+        relatedService:
+          type: string
+          nullable: true
+          description: Slug do serviço relacionado
+        relatedProtocol:
+          type: string
+          nullable: true
+        consent:
+          $ref: '#/components/schemas/Consent'
+
+    TrackingCredentials:
+      type: object
+      required: [protocol, phone]
+      properties:
+        protocol:
+          type: string
+          example: CAP-7K3Q-9XM2
+        phone:
+          $ref: '#/components/schemas/Phone'
+
+    TrackingMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          type: string
+          enum: [staff, visitor]
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TrackingView:
+      type: object
+      properties:
+        protocol:
+          type: string
+        type:
+          $ref: '#/components/schemas/RequestType'
+        publicStatus:
+          type: string
+          description: Reserva - reserved, picked_up, returned, cancelled, no_show. Perdido - registered, searching, ready_for_pickup, delivered, closed_not_found, cancelled. SAC - open, in_progress, answered, closed.
+          example: reserved
+        createdAt:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          additionalProperties: true
+          description: Resumo seguro (ex. equipamento e horário; categoria, local e data). Nunca inclui a descrição do item.
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              at:
+                type: string
+                format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackingMessage'
+        canCancel:
+          type: boolean
+        canReply:
+          type: boolean
+
+    RequestListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        protocol:
+          type: string
+        type:
+          $ref: '#/components/schemas/RequestType'
+        status:
+          type: string
+        visitorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+          description: Início da reserva
+        hasNewVisitorReply:
+          type: boolean
+
+    RequestDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        protocol:
+          type: string
+        type:
+          $ref: '#/components/schemas/RequestType'
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        visitor:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+              nullable: true
+            email:
+              type: string
+              nullable: true
+        reservation:
+          allOf:
+            - $ref: '#/components/schemas/ReservationData'
+          nullable: true
+        lostReport:
+          allOf:
+            - $ref: '#/components/schemas/LostReportData'
+          nullable: true
+        sacMessage:
+          allOf:
+            - $ref: '#/components/schemas/SacMessageData'
+          nullable: true
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackingMessage'
+
+    ReservationData:
+      type: object
+      properties:
+        equipmentType:
+          $ref: '#/components/schemas/EquipmentType'
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        pickedUpAt:
+          type: string
+          format: date-time
+          nullable: true
+        returnedAt:
+          type: string
+          format: date-time
+          nullable: true
+        forWhom:
+          type: string
+          nullable: true
+        size:
+          type: string
+          nullable: true
+        strollerKind:
+          type: string
+          nullable: true
+        currentLocation:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        pickupOverdue:
+          type: boolean
+        returnOverdue:
+          type: boolean
+
+    LostReportData:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/ObjectCategory'
+        description:
+          type: string
+        identificationDetail:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        location:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        unknownLocation:
+          type: boolean
+        lostDate:
+          type: string
+          format: date
+        lostPeriod:
+          $ref: '#/components/schemas/DayPeriod'
+        linkedFoundItemId:
+          type: string
+          format: uuid
+          nullable: true
+
+    SacMessageData:
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/SacSubject'
+        message:
+          type: string
+        relatedService:
+          type: string
+          nullable: true
+        relatedProtocol:
+          type: string
+          nullable: true
+
+    HistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fromStatus:
+          type: string
+          nullable: true
+        toStatus:
+          type: string
+        actor:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [staff, visitor, system]
+            userId:
+              type: string
+              format: uuid
+              nullable: true
+            name:
+              type: string
+              nullable: true
+        internalNote:
+          type: string
+          nullable: true
+          description: Nunca aparece ao visitante
+        createdAt:
+          type: string
+          format: date-time
+
+    Agenda:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        equipmentType:
+          $ref: '#/components/schemas/EquipmentType'
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: string
+                format: date-time
+              end:
+                type: string
+                format: date-time
+              totalUnits:
+                type: integer
+              freeUnits:
+                type: integer
+              reservations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    protocol:
+                      type: string
+                    visitorName:
+                      type: string
+                    status:
+                      type: string
+                    pickupOverdue:
+                      type: boolean
+                    returnOverdue:
+                      type: boolean
+
+    CreateFoundItem:
+      type: object
+      required: [category, description, foundLocationId, foundAt]
+      properties:
+        category:
+          $ref: '#/components/schemas/ObjectCategory'
+        description:
+          type: string
+          maxLength: 500
+        foundLocationId:
+          type: string
+          format: uuid
+        foundAt:
+          type: string
+          format: date-time
+        storedAt:
+          type: string
+          description: Onde o item está guardado
+          example: Armário do SAC
+        photoUrl:
+          type: string
+          format: uri
+        deliveredBy:
+          type: string
+          description: Quem entregou ao setor
+    FoundItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: ACH-0042
+        status:
+          $ref: '#/components/schemas/FoundItemStatus'
+        category:
+          $ref: '#/components/schemas/ObjectCategory'
+        description:
+          type: string
+        foundLocation:
+          $ref: '#/components/schemas/Location'
+        foundAt:
+          type: string
+          format: date-time
+        storedAt:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        deliveredBy:
+          type: string
+          nullable: true
+        storageDeadline:
+          type: string
+          format: date
+        expired:
+          type: boolean
+    MatchSuggestion:
+      type: object
+      properties:
+        foundItem:
+          $ref: '#/components/schemas/FoundItem'
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reasons:
+          type: array
+          items:
+            type: string
+          example: [Mesma categoria, Mesmo local, Data próxima]
+
+    Equipment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/EquipmentType'
+        label:
+          type: string
+          description: Identificação, tamanho ou modelo
+          example: Cadeira adulto
+        quantity:
+          type: integer
+          minimum: 0
+        pickupLocationId:
+          type: string
+          format: uuid
+        active:
+          type: boolean
+    EquipmentInput:
+      type: object
+      required: [type, label, quantity, pickupLocationId]
+      properties:
+        type:
+          $ref: '#/components/schemas/EquipmentType'
+        label:
+          type: string
+        quantity:
+          type: integer
+          minimum: 0
+        pickupLocationId:
+          type: string
+          format: uuid
+        active:
+          type: boolean
+          default: true
+
+    ReservationSettings:
+      type: object
+      required: [openingHours, slotMinutes, loanDurationMinutes, pickupToleranceMinutes, maxAdvanceDays, maxActiveReservationsPerPhone, requireDocumentOnPickup]
+      properties:
+        openingHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpeningHour'
+        slotMinutes:
+          type: integer
+          example: 30
+        loanDurationMinutes:
+          type: integer
+          example: 120
+        pickupToleranceMinutes:
+          type: integer
+          example: 15
+        maxAdvanceDays:
+          type: integer
+          example: 7
+        maxActiveReservationsPerPhone:
+          type: integer
+          example: 1
+        requireDocumentOnPickup:
+          type: boolean
+          example: false
+        foundItemStorageDays:
+          type: integer
+          description: Prazo de guarda de itens encontrados (RF20, RF23)
+        personalDataRetentionDays:
+          type: integer
+          description: Prazo para anonimizar dados após a conclusão (RF31)
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        active:
+          type: boolean
+    CreateUser:
+      type: object
+      required: [name, email, role, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        password:
+          type: string
+          format: password
+          minLength: 8
+    UpdateUser:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        active:
+          type: boolean
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    EquipmentIndicators:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date
+            to:
+              type: string
+              format: date
+        totals:
+          type: object
+          properties:
+            reservations:
+              type: integer
+            pickedUp:
+              type: integer
+            returned:
+              type: integer
+            cancelled:
+              type: integer
+            noShow:
+              type: integer
+        byHour:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: integer
+              reservations:
+                type: integer
+        byWeekday:
+          type: array
+          items:
+            type: object
+            properties:
+              weekday:
+                type: integer
+              reservations:
+                type: integer
+        occupancyRate:
+          type: number
+          description: Fração de 0 a 1
+        unmetDemandCount:
+          type: integer
+          description: Consultas sem horário livre
+        noShowRate:
+          type: number
+
+    LostFoundIndicators:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            lostReports:
+              type: integer
+            foundItems:
+              type: integer
+            delivered:
+              type: integer
+        lostByCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                $ref: '#/components/schemas/ObjectCategory'
+              count:
+                type: integer
+        lostByLocation:
+          type: array
+          description: Local informado pelo visitante
+          items:
+            $ref: '#/components/schemas/LocationCount'
+        foundByLocation:
+          type: array
+          description: Local do achado, registrado pela equipe
+          items:
+            $ref: '#/components/schemas/LocationCount'
+        returnedRate:
+          type: number
+        avgDaysToDelivery:
+          type: number
+
+    LocationCount:
+      type: object
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        locationName:
+          type: string
+        count:
+          type: integer
+
+    ServiceIndicators:
+      type: object
+      properties:
+        byService:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                $ref: '#/components/schemas/RequestType'
+              count:
+                type: integer
+        bySacSubject:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                $ref: '#/components/schemas/SacSubject'
+              count:
+                type: integer
+        avgFirstResponseMinutes:
+          type: number
+        avgResolutionMinutes:
+          type: number
+        oldestOpen:
+          type: array
+          items:
+            type: object
+            properties:
+              protocol:
+                type: string
+              type:
+                $ref: '#/components/schemas/RequestType'
+              createdAt:
+                type: string
+                format: date-time
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,525 @@
+// Gerado a partir de capim-dourado.dbml.
+// Nomes no banco em snake_case (via @map/@@map), iguais aos do DBML.
+//
+// Regras que o Prisma não expressa (adicionar na migration SQL):
+//   - reservation_settings: CHECK (id = 1)
+//   - privacy_notices: CREATE UNIQUE INDEX privacy_notices_one_active ON privacy_notices (active) WHERE active;
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- Enums
+
+enum UserRole {
+  attendant
+  manager
+
+  @@map("user_role")
+}
+
+enum LocationType {
+  entrance
+  food_court
+  parking
+  store_area
+  service
+  other
+
+  @@map("location_type")
+}
+
+enum ServiceKind {
+  interactive
+  informational
+
+  @@map("service_kind")
+}
+
+enum ServiceFlow {
+  equipment_reservation
+  lost_report
+  sac_message
+  none
+
+  @@map("service_flow")
+}
+
+enum EquipmentType {
+  wheelchair
+  stroller
+
+  @@map("equipment_type")
+}
+
+enum RequestType {
+  reservation
+  lost_report
+  sac_message
+
+  @@map("request_type")
+}
+
+enum RequestStatus {
+  reserved
+  picked_up
+  returned
+  no_show
+  registered
+  searching
+  possible_match
+  ready_for_pickup
+  delivered
+  closed_not_found
+  open
+  in_progress
+  answered
+  closed
+  cancelled
+
+  @@map("request_status")
+}
+
+enum ReservationForWhom {
+  self
+  other
+
+  @@map("reservation_for_whom")
+}
+
+enum WheelchairSize {
+  adult
+  child
+
+  @@map("wheelchair_size")
+}
+
+enum StrollerKind {
+  single
+  double
+
+  @@map("stroller_kind")
+}
+
+enum ObjectCategory {
+  documents
+  wallet_bag
+  phone_electronics
+  keys
+  clothing_accessories
+  glasses_jewelry
+  other
+
+  @@map("object_category")
+}
+
+enum DayPeriod {
+  morning
+  afternoon
+  night
+  unknown
+
+  @@map("day_period")
+}
+
+enum SacSubject {
+  question
+  complaint
+  suggestion
+  compliment
+  other
+  data_deletion
+
+  @@map("sac_subject")
+}
+
+enum FoundItemStatus {
+  stored
+  delivered
+  discarded
+  forwarded
+
+  @@map("found_item_status")
+}
+
+enum MessageAuthor {
+  staff
+  visitor
+
+  @@map("message_author")
+}
+
+enum ActorType {
+  staff
+  visitor
+  system
+
+  @@map("actor_type")
+}
+
+enum NotificationEvent {
+  reservation_confirmed
+  status_changed
+  new_message
+
+  @@map("notification_event")
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+
+  @@map("notification_status")
+}
+
+enum JobStatus {
+  success
+  failed
+
+  @@map("job_status")
+}
+
+// ---------------------------------------------------------------- Acesso e cadastros
+
+model User {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String    @db.VarChar(120)
+  email               String    @unique @db.VarChar(255)
+  passwordHash        String    @map("password_hash") @db.VarChar(255)
+  role                UserRole
+  active              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  foundItemsRegistered FoundItem[]     @relation("FoundItemRegisteredBy")
+  foundItemsClosed     FoundItem[]     @relation("FoundItemClosedBy")
+  messages             RequestMessage[]
+  historyEntries       RequestHistory[]
+
+  @@map("users")
+}
+
+model Location {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String       @db.VarChar(120)
+  floor     String       @db.VarChar(40)
+  type      LocationType
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  services     Service[]
+  equipment    Equipment[]
+  reservations Reservation[]
+  lostReports  LostReport[]
+  foundItems   FoundItem[]
+
+  @@unique([name, floor])
+  @@map("locations")
+}
+
+model Service {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String         @unique @db.VarChar(80)
+  name             String         @db.VarChar(120)
+  shortDescription String         @map("short_description") @db.VarChar(255)
+  description      String?
+  icon             String?        @db.VarChar(60)
+  kind             ServiceKind
+  flow             ServiceFlow    @default(none)
+  equipmentType    EquipmentType? @map("equipment_type")
+  howItWorks       String[]       @map("how_it_works")
+  contactPhone     String?        @map("contact_phone") @db.VarChar(30)
+  pickupLocationId String?        @map("pickup_location_id") @db.Uuid
+  active           Boolean        @default(true)
+  sortOrder        Int            @default(0) @map("sort_order")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  pickupLocation Location?    @relation(fields: [pickupLocationId], references: [id])
+  sacMessages    SacMessage[]
+
+  @@index([active, sortOrder])
+  @@map("services")
+}
+
+model OpeningHour {
+  id        Int     @id @default(autoincrement())
+  weekday   Int     @unique
+  closed    Boolean @default(false)
+  openTime  String? @map("open_time") @db.VarChar(5)
+  closeTime String? @map("close_time") @db.VarChar(5)
+
+  @@map("opening_hours")
+}
+
+model ReservationSettings {
+  id                            Int      @id @default(1)
+  slotMinutes                   Int      @default(30) @map("slot_minutes")
+  loanDurationMinutes           Int      @default(120) @map("loan_duration_minutes")
+  pickupToleranceMinutes        Int      @default(15) @map("pickup_tolerance_minutes")
+  maxAdvanceDays                Int      @default(7) @map("max_advance_days")
+  maxActiveReservationsPerPhone Int      @default(1) @map("max_active_reservations_per_phone")
+  requireDocumentOnPickup       Boolean  @default(false) @map("require_document_on_pickup")
+  foundItemStorageDays          Int      @default(90) @map("found_item_storage_days")
+  personalDataRetentionDays     Int      @default(180) @map("personal_data_retention_days")
+  updatedAt                     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("reservation_settings")
+}
+
+model Equipment {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type             EquipmentType
+  label            String        @db.VarChar(80)
+  quantity         Int           @default(0)
+  pickupLocationId String        @map("pickup_location_id") @db.Uuid
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  pickupLocation Location @relation(fields: [pickupLocationId], references: [id])
+
+  @@index([type, active])
+  @@map("equipment")
+}
+
+model PrivacyNotice {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version     String   @unique @db.VarChar(20)
+  text        String
+  active      Boolean  @default(false)
+  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz(3)
+
+  consents Consent[]
+
+  @@map("privacy_notices")
+}
+
+// ---------------------------------------------------------------- Núcleo de solicitações
+
+model Request {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  protocol           String        @unique @db.VarChar(13)
+  type               RequestType
+  status             RequestStatus
+  visitorName        String        @map("visitor_name") @db.VarChar(120)
+  visitorPhone       String?       @map("visitor_phone") @db.VarChar(11)
+  visitorEmail       String?       @map("visitor_email") @db.VarChar(255)
+  hasNewVisitorReply Boolean       @default(false) @map("has_new_visitor_reply")
+  firstResponseAt    DateTime?     @map("first_response_at") @db.Timestamptz(3)
+  completedAt        DateTime?     @map("completed_at") @db.Timestamptz(3)
+  anonymizedAt       DateTime?     @map("anonymized_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservation   Reservation?
+  lostReport    LostReport?
+  sacMessage    SacMessage?
+  consents      Consent[]
+  messages      RequestMessage[]
+  history       RequestHistory[]
+  notifications NotificationLog[]
+
+  @@index([type, status])
+  @@index([visitorPhone, type, status])
+  @@index([createdAt])
+  @@index([anonymizedAt, completedAt])
+  @@map("requests")
+}
+
+model Consent {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId            String   @map("request_id") @db.Uuid
+  privacyNoticeVersion String   @map("privacy_notice_version") @db.VarChar(20)
+  purpose              String   @db.VarChar(120)
+  acceptedAt           DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+
+  request       Request       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  privacyNotice PrivacyNotice @relation(fields: [privacyNoticeVersion], references: [version])
+
+  @@index([requestId])
+  @@map("consents")
+}
+
+model Reservation {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId         String              @unique @map("request_id") @db.Uuid
+  equipmentType     EquipmentType       @map("equipment_type")
+  startAt           DateTime            @map("start_at") @db.Timestamptz(3)
+  endAt             DateTime            @map("end_at") @db.Timestamptz(3)
+  pickupDeadline    DateTime            @map("pickup_deadline") @db.Timestamptz(3)
+  pickedUpAt        DateTime?           @map("picked_up_at") @db.Timestamptz(3)
+  returnedAt        DateTime?           @map("returned_at") @db.Timestamptz(3)
+  forWhom           ReservationForWhom? @map("for_whom")
+  size              WheelchairSize?
+  strollerKind      StrollerKind?       @map("stroller_kind")
+  currentLocationId String?             @map("current_location_id") @db.Uuid
+  notes             String?             @db.VarChar(200)
+  documentChecked   Boolean?            @map("document_checked")
+  pickupNotes       String?             @map("pickup_notes") @db.VarChar(300)
+  returnNotes       String?             @map("return_notes") @db.VarChar(300)
+
+  request         Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  currentLocation Location? @relation(fields: [currentLocationId], references: [id])
+
+  @@index([equipmentType, startAt, endAt])
+  @@index([startAt])
+  @@map("reservations")
+}
+
+model UnmetDemand {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipmentType EquipmentType @map("equipment_type")
+  requestedFor  DateTime      @map("requested_for") @db.Date
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([equipmentType, createdAt])
+  @@map("unmet_demands")
+}
+
+model LostReport {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId              String         @unique @map("request_id") @db.Uuid
+  category               ObjectCategory
+  description            String         @db.VarChar(500)
+  identificationDetail   String?        @map("identification_detail") @db.VarChar(300)
+  photoUrl               String?        @map("photo_url") @db.VarChar(500)
+  locationId             String?        @map("location_id") @db.Uuid
+  unknownLocation        Boolean        @default(false) @map("unknown_location")
+  lostDate               DateTime       @map("lost_date") @db.Date
+  lostPeriod             DayPeriod      @default(unknown) @map("lost_period")
+  foundItemId            String?        @unique @map("found_item_id") @db.Uuid
+  matchedAt              DateTime?      @map("matched_at") @db.Timestamptz(3)
+  identificationValidated Boolean?      @map("identification_validated")
+  deliveredAt            DateTime?      @map("delivered_at") @db.Timestamptz(3)
+  deliveryNotes          String?        @map("delivery_notes") @db.VarChar(300)
+
+  request   Request    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  location  Location?  @relation(fields: [locationId], references: [id])
+  foundItem FoundItem? @relation(fields: [foundItemId], references: [id])
+
+  @@index([category])
+  @@index([lostDate])
+  @@index([locationId])
+  @@map("lost_reports")
+}
+
+model FoundItem {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seq             Int             @unique @default(autoincrement())
+  code            String          @unique @db.VarChar(20)
+  status          FoundItemStatus @default(stored)
+  category        ObjectCategory
+  description     String          @db.VarChar(500)
+  foundLocationId String          @map("found_location_id") @db.Uuid
+  foundAt         DateTime        @map("found_at") @db.Timestamptz(3)
+  storedPlace     String?         @map("stored_place") @db.VarChar(120)
+  photoUrl        String?         @map("photo_url") @db.VarChar(500)
+  handedInBy      String?         @map("handed_in_by") @db.VarChar(120)
+  storageDeadline DateTime        @map("storage_deadline") @db.Date
+  registeredById  String          @map("registered_by_id") @db.Uuid
+  closedAt        DateTime?       @map("closed_at") @db.Timestamptz(3)
+  closedById      String?         @map("closed_by_id") @db.Uuid
+  closeNotes      String?         @map("close_notes") @db.VarChar(300)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  foundLocation Location    @relation(fields: [foundLocationId], references: [id])
+  registeredBy  User        @relation("FoundItemRegisteredBy", fields: [registeredById], references: [id])
+  closedBy      User?       @relation("FoundItemClosedBy", fields: [closedById], references: [id])
+  lostReport    LostReport?
+
+  @@index([status, storageDeadline])
+  @@index([category])
+  @@index([foundLocationId])
+  @@map("found_items")
+}
+
+model SacMessage {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId        String     @unique @map("request_id") @db.Uuid
+  subject          SacSubject
+  message          String     @db.VarChar(1500)
+  relatedServiceId String?    @map("related_service_id") @db.Uuid
+  relatedProtocol  String?    @map("related_protocol") @db.VarChar(13)
+
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  relatedService Service? @relation(fields: [relatedServiceId], references: [id])
+
+  @@map("sac_messages")
+}
+
+model RequestMessage {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId    String        @map("request_id") @db.Uuid
+  author       MessageAuthor
+  authorUserId String?       @map("author_user_id") @db.Uuid
+  text         String        @db.VarChar(1000)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request    Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorUser User?   @relation(fields: [authorUserId], references: [id])
+
+  @@index([requestId, createdAt])
+  @@map("request_messages")
+}
+
+model RequestHistory {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId    String         @map("request_id") @db.Uuid
+  fromStatus   RequestStatus? @map("from_status")
+  toStatus     RequestStatus  @map("to_status")
+  actorType    ActorType      @map("actor_type")
+  actorUserId  String?        @map("actor_user_id") @db.Uuid
+  internalNote String?        @map("internal_note") @db.VarChar(500)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorUser User?   @relation(fields: [actorUserId], references: [id])
+
+  @@index([requestId, createdAt])
+  @@map("request_history")
+}
+
+// ---------------------------------------------------------------- Operação
+
+model NotificationLog {
+  id        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId String             @map("request_id") @db.Uuid
+  event     NotificationEvent
+  toEmail   String             @map("to_email") @db.VarChar(255)
+  status    NotificationStatus @default(pending)
+  attempts  Int                @default(0)
+  error     String?            @db.VarChar(500)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  sentAt    DateTime?          @map("sent_at") @db.Timestamptz(3)
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([requestId])
+  @@map("notification_logs")
+}
+
+model JobLog {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobName       String    @map("job_name") @db.VarChar(60)
+  status        JobStatus
+  affectedCount Int       @default(0) @map("affected_count")
+  error         String?   @db.VarChar(500)
+  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt    DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  @@index([jobName, startedAt])
+  @@map("job_logs")
+}
