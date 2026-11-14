@@ -383,9 +383,9 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-02, RSV-03, RSV-10
 
 **Done when**:
-- [ ] `routes.ts` registra `trackingRoutes` (e `reservationsRoutes` segue registrada).
-- [ ] Testes de disponibilidade com banco: blocos livres, sem unidades, tipo/data inválidos, tipo sem equipamento ativo, dia fechado, status que ocupam ou liberam, `nowAvailable`, demanda não atendida, sem token e sem dados pessoais.
-- [ ] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
+- [x] `routes.ts` registra `trackingRoutes` (e `reservationsRoutes` segue registrada).
+- [x] Testes de disponibilidade com banco: blocos livres, sem unidades, tipo/data inválidos, tipo sem equipamento ativo, dia fechado, status que ocupam ou liberam, `nowAvailable`, demanda não atendida, sem token e sem dados pessoais.
+- [x] Gate check passes: `pnpm --filter @saas/api exec vitest run`.
 
 **Tests**: integration
 **Gate**: full
