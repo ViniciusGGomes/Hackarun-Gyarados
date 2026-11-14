@@ -107,8 +107,8 @@ Tasks T11..T15.
 **Requirement**: AUTHN-10
 
 **Done when**:
-- [ ] `AccountLockedError extends Error` com mensagem padrão e `name`.
-- [ ] `check-types` passa.
+- [x] `AccountLockedError extends Error` com mensagem padrão e `name`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
