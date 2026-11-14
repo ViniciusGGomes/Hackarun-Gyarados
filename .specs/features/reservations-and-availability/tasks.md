@@ -202,10 +202,10 @@ Tasks T18..T21.
 **Requirement**: RSV-01, RSV-02, RSV-04, RSV-05
 
 **Done when**:
-- [ ] `AvailabilityParamsSchema`, `AvailabilityQuerySchema` (data real), `AvailabilitySchema`.
-- [ ] `CreateReservationSchema`: regras de validação do spec (telefone `^[0-9]{10,11}$`, nome ≤ 120 com `trim`, `notes` ≤ 200, `email`, `consent.accepted` literal `true`; `scheduled` exige `startAt`; `forWhom`/`size` só `wheelchair`, `strollerKind` só `stroller`).
-- [ ] `ReservationCreatedSchema`.
-- [ ] `check-types` passa.
+- [x] `AvailabilityParamsSchema`, `AvailabilityQuerySchema` (data real), `AvailabilitySchema`.
+- [x] `CreateReservationSchema`: regras de validação do spec (telefone `^[0-9]{10,11}$`, nome ≤ 120 com `trim`, `notes` ≤ 200, `email`, `consent.accepted` literal `true`; `scheduled` exige `startAt`; `forWhom`/`size` só `wheelchair`, `strollerKind` só `stroller`).
+- [x] `ReservationCreatedSchema`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
