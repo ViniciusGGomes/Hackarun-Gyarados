@@ -160,10 +160,10 @@ Tasks T11..T15.
 **Requirement**: AUTHN-01, AUTHN-04, AUTHN-20
 
 **Done when**:
-- [ ] `LoginBodySchema`: `email` (e-mail válido) e `password` (string não vazia).
-- [ ] `UserSchema`: `id` (uuid), `name`, `email`, `role` (`attendant`|`manager`), `active`; sem `passwordHash`, contadores ou `lastLoginAt`.
-- [ ] `LoginResponseSchema`: `accessToken`, `expiresIn` (inteiro), `user`.
-- [ ] `check-types` passa.
+- [x] `LoginBodySchema`: `email` (e-mail válido) e `password` (string não vazia).
+- [x] `UserSchema`: `id` (uuid), `name`, `email`, `role` (`attendant`|`manager`), `active`; sem `passwordHash`, contadores ou `lastLoginAt`.
+- [x] `LoginResponseSchema`: `accessToken`, `expiresIn` (inteiro), `user`.
+- [x] `check-types` passa.
 
 **Tests**: none
 **Gate**: build
